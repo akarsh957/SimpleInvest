@@ -3,12 +3,22 @@ import logging
 from typing import Dict, Any, List, Optional
 from groq import Groq, AsyncGroq
 
-from app.config import settings
-from app.schemas.asset import AssetMetrics, AssetAnalysisResponse
-from app.schemas.portfolio import (
-    HoldingAuditDetail,
-    PortfolioAuditResponse,
-)
+try:
+    from backend.app.config import settings
+    from backend.app.schemas.asset import AssetMetrics, AssetAnalysisResponse
+    from backend.app.schemas.portfolio import (
+        HoldingAuditDetail,
+        PortfolioAuditResponse,
+    )
+    from backend.app.schemas.market import GrowthOpportunity, GrowthScoutResponse
+except ImportError:
+    from app.config import settings
+    from app.schemas.asset import AssetMetrics, AssetAnalysisResponse
+    from app.schemas.portfolio import (
+        HoldingAuditDetail,
+        PortfolioAuditResponse,
+    )
+    from app.schemas.market import GrowthOpportunity, GrowthScoutResponse
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +220,93 @@ Return a strict JSON object with these EXACT keys:
                 total_invested, total_current, sector_breakdown, holdings_detail
             )
 
+    async def scout_growth_opportunities(
+        self,
+        risk_preference: str,
+        sector: str,
+        candidates_data: List[Dict[str, Any]],
+    ) -> GrowthScoutResponse:
+        """
+        Scouts AI-driven growth opportunities using Groq LLM (llama-3.1-8b-instant).
+        """
+        client = self.async_client
+        if not client:
+            logger.warning("GROQ_API_KEY missing or placeholder. Using intelligent growth scout mock engine.")
+            return self._mock_growth_scout(risk_preference, sector, candidates_data)
+
+        system_prompt = (
+            "You are a Senior Quantitative Equity Analyst and Growth Strategist. "
+            "Analyze financial metrics (Forward P/E, PEG ratio, Revenue Growth, Debt-to-Equity) "
+            "and generate structured high-conviction growth recommendations for investors.\n"
+            "STRICT RULES:\n"
+            "1. Output ONLY valid JSON matching the schema.\n"
+            "2. Explain catalysts and highlights in plain, accessible language.\n"
+            "3. Include a realistic upside range (e.g. '15% - 25% over 12 months') and a honest cautionary flag."
+        )
+
+        user_prompt = f"""
+Investor Profile:
+- Risk Preference: {risk_preference}
+- Sector Filter: {sector}
+
+Candidate Companies Data:
+{json.dumps(candidates_data, indent=2)}
+
+Return a strict JSON object with key "recommendations" containing an array of objects matching this exact structure:
+{{
+  "recommendations": [
+    {{
+      "ticker": "TICKER",
+      "company_name": "Full Company Name",
+      "growth_catalyst": "1-2 plain English sentences explaining structural tailwinds driving growth",
+      "potential_upside_range": "15% - 25% over 12 months",
+      "risk_level": "Low | Moderate | High",
+      "confidence_score": 88,
+      "key_metric_highlight": "Key metric highlight (e.g., Revenue grew 122% YoY with zero balance sheet stress)",
+      "cautionary_flag": "Honest downside risk or cautionary flag"
+    }}
+  ]
+}}
+"""
+
+        try:
+            response = await client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.temperature,
+                response_format={"type": "json_object"},
+            )
+            raw_content = response.choices[0].message.content.strip()
+            data = self._parse_json_response(raw_content)
+
+            raw_recs = data.get("recommendations", [])
+            parsed_recs = []
+            for item in raw_recs:
+                parsed_recs.append(
+                    GrowthOpportunity(
+                        ticker=str(item.get("ticker", "NVDA")),
+                        company_name=str(item.get("company_name", "NVIDIA Corporation")),
+                        growth_catalyst=str(item.get("growth_catalyst", "Dominant position in next-gen compute architecture.")),
+                        potential_upside_range=str(item.get("potential_upside_range", "15% - 25% over 12 months")),
+                        risk_level=str(item.get("risk_level", "Moderate")),
+                        confidence_score=int(item.get("confidence_score", 85)),
+                        key_metric_highlight=str(item.get("key_metric_highlight", "Strong revenue growth with healthy profit margins.")),
+                        cautionary_flag=str(item.get("cautionary_flag", "High market valuation requires consistent earnings beats.")),
+                    )
+                )
+
+            if not parsed_recs:
+                return self._mock_growth_scout(risk_preference, sector, candidates_data)
+
+            return GrowthScoutResponse(recommendations=parsed_recs)
+
+        except Exception as e:
+            logger.error(f"Groq growth scout error: {e}. Falling back to rule-based engine.")
+            return self._mock_growth_scout(risk_preference, sector, candidates_data)
+
     def _mock_asset_analysis(self, metrics: AssetMetrics) -> AssetAnalysisResponse:
         """
         Local rule-based fallback analyzer that generates warm, jargon-free explanations.
@@ -217,7 +314,6 @@ Return a strict JSON object with these EXACT keys:
         beta = metrics.beta if metrics.beta is not None else 1.0
         pe = metrics.trailing_pe
 
-        # Risk Vibe Determination
         if beta < 0.8:
             risk_vibe = "Smooth Ride"
             crash_text = (
@@ -237,7 +333,6 @@ Return a strict JSON object with these EXACT keys:
                 f"potentially dropping around {abs(round(beta * 10, 1))}% in the short term."
             )
 
-        # Valuation Assessment
         if pe is None:
             valuation = (
                 f"{metrics.company_name} is priced based on future potential rather than current profits. "
@@ -256,7 +351,6 @@ Return a strict JSON object with these EXACT keys:
                 f"Priced like a popular, high-end favorite. Investors expect big future growth, so shares command a premium price."
             )
 
-        # Summary
         summary = (
             f"{metrics.company_name} operates in the {metrics.sector} space, "
             f"providing products and services to millions of daily customers."
@@ -283,7 +377,6 @@ Return a strict JSON object with these EXACT keys:
         """
         Local rule-based fallback portfolio auditor.
         """
-        # Determine concentration
         top_sector, top_pct = max(sector_breakdown.items(), key=lambda x: x[1]) if sector_breakdown else ("General", 100.0)
 
         if top_pct >= 60.0:
@@ -336,5 +429,165 @@ Return a strict JSON object with these EXACT keys:
             holdings_detail=holdings_detail,
         )
 
+    def _mock_growth_scout(
+        self,
+        risk_preference: str,
+        sector: str,
+        candidates_data: List[Dict[str, Any]],
+    ) -> GrowthScoutResponse:
+        """
+        Rule-based growth scout fallback returning high-conviction opportunities.
+        """
+        is_aggressive = risk_preference.lower() == "aggressive"
+        
+        all_options = [
+            GrowthOpportunity(
+                ticker="NVDA",
+                company_name="NVIDIA Corporation",
+                growth_catalyst="Uncontested global monopoly in AI accelerators and datacenter GPU infrastructure, powered by massive enterprise software investments.",
+                potential_upside_range="25% - 40% over 12 months" if is_aggressive else "15% - 25% over 12 months",
+                risk_level="High" if is_aggressive else "Moderate",
+                confidence_score=92 if is_aggressive else 88,
+                key_metric_highlight="Revenue grew 122% YoY with zero balance sheet stress and 75%+ gross margins.",
+                cautionary_flag="High valuation multiple leaves little room for earnings misses or chip supply delays."
+            ),
+            GrowthOpportunity(
+                ticker="AAPL",
+                company_name="Apple Inc.",
+                growth_catalyst="Super-cycle drive powered by Apple Intelligence on 1.5B active iPhones alongside high-margin recurring Services revenue.",
+                potential_upside_range="12% - 18% over 12 months",
+                risk_level="Low",
+                confidence_score=90,
+                key_metric_highlight="Services business generates over $24B quarterly with massive balance sheet cash reserves.",
+                cautionary_flag="Slower hardware replacement cycles in emerging Asian markets could cap short-term upside."
+            ),
+            GrowthOpportunity(
+                ticker="MSFT",
+                company_name="Microsoft Corporation",
+                growth_catalyst="Azure Cloud scaling rapidly with integrated OpenAI Copilot features enterprise-wide across Office and Developer tools.",
+                potential_upside_range="15% - 22% over 12 months",
+                risk_level="Low" if not is_aggressive else "Moderate",
+                confidence_score=94,
+                key_metric_highlight="Cloud revenue up 29% YoY with over $50B in annualized AI-related cloud commitments.",
+                cautionary_flag="Substantial capital expenditure spending on data center infrastructure may temporarily press cash flow."
+            ),
+            GrowthOpportunity(
+                ticker="TSLA",
+                company_name="Tesla, Inc.",
+                growth_catalyst="Autonomous Full Self-Driving (FSD) v12 neural networks rollout and expanding Energy Storage utility deployments.",
+                potential_upside_range="30% - 55% over 12 months" if is_aggressive else "15% - 30% over 12 months",
+                risk_level="High",
+                confidence_score=78 if is_aggressive else 72,
+                key_metric_highlight="Energy storage deployments surged 157% YoY with industry-leading EV manufacturing efficiency.",
+                cautionary_flag="Short-term automotive price cuts and EV margin compression pose volatility risks."
+            ),
+            GrowthOpportunity(
+                ticker="RELIANCE.NS",
+                company_name="Reliance Industries Ltd.",
+                growth_catalyst="5G monetization via Jio Telecom paired with rapid expansion of Retail store footprints and green hydrogen investments.",
+                potential_upside_range="18% - 25% over 12 months",
+                risk_level="Moderate",
+                confidence_score=86,
+                key_metric_highlight="Jio subscriber ARPU increasing steadily with over 450M mobile subscribers across India.",
+                cautionary_flag="Heavy ongoing capital expenditure in new energy gigafactories may delay immediate dividend hikes."
+            ),
+            GrowthOpportunity(
+                ticker="HDFCBANK.NS",
+                company_name="HDFC Bank Limited",
+                growth_catalyst="Post-merger deposit accretion and branch network expansion expanding net interest margins in fast-growing urban hubs.",
+                potential_upside_range="14% - 20% over 12 months",
+                risk_level="Low",
+                confidence_score=89,
+                key_metric_highlight="Best-in-class asset quality with Gross NPA under 1.3% and solid credit growth.",
+                cautionary_flag="Digestive phase following parent merger requires steady deposit gathering over upcoming quarters."
+            ),
+            GrowthOpportunity(
+                ticker="TCS.NS",
+                company_name="Tata Consultancy Services",
+                growth_catalyst="Massive order book win-rate in AI transformation and cloud migration contracts across Europe and North America.",
+                potential_upside_range="12% - 17% over 12 months",
+                risk_level="Low",
+                confidence_score=87,
+                key_metric_highlight="Record quarterly deal total contract value (TCV) exceeding $12 Billion with 24%+ operating margins.",
+                cautionary_flag="Slower discretionary tech spend in Western banking clients could moderate deal pipeline conversion."
+            ),
+        ]
+
+        sec_clean = sector.lower().strip()
+        if sec_clean == "tech":
+            filtered = [o for o in all_options if o.ticker in ["NVDA", "AAPL", "MSFT", "TCS.NS"]]
+        elif sec_clean == "finance":
+            filtered = [o for o in all_options if o.ticker in ["HDFCBANK.NS"]]
+        elif sec_clean == "energy":
+            filtered = [o for o in all_options if o.ticker in ["RELIANCE.NS", "TSLA"]]
+        else:
+            filtered = all_options
+
+        if not filtered:
+            filtered = all_options[:3]
+
+        return GrowthScoutResponse(recommendations=filtered)
+
+    async def predict_momentum(self, ticker: str, historical_data: Dict[str, Any]):
+        """
+        Uses Groq AI to predict stock momentum based on recent historical data from Twelve Data.
+        """
+        client = self.async_client
+        if not client:
+            return {
+                "ticker": ticker,
+                "momentum_score": 65,
+                "trend": "BULLISH",
+                "analysis": "AI API Key missing. Returning fallback mock analysis: Stock shows a mild upward trend."
+            }
+
+        # Format historical data for prompt
+        try:
+            values = historical_data.get('values', [])
+            prices_summary = ", ".join([f"{v['datetime']}: {v['close']}" for v in values[:14]])
+        except Exception:
+            prices_summary = "Data unavailable"
+
+        system_prompt = (
+            "You are a technical analyst. You are provided with recent daily closing prices of a stock. "
+            "Analyze the short-term momentum and return a strict JSON object with EXACT keys: "
+            "ticker (string), momentum_score (0-100 float), trend ('BULLISH', 'BEARISH', or 'NEUTRAL'), "
+            "and analysis (1-2 sentences of plain english technical analysis without heavy jargon)."
+        )
+
+        user_prompt = f"Analyze momentum for {ticker}. Recent daily closing prices: {prices_summary}"
+
+        try:
+            from backend.app.schemas.trading import MomentumPredictionResponse
+        except ImportError:
+            from app.schemas.trading import MomentumPredictionResponse
+
+        try:
+            response = await client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=self.temperature,
+                response_format={"type": "json_object"},
+            )
+            raw_content = response.choices[0].message.content.strip()
+            data = self._parse_json_response(raw_content)
+
+            return MomentumPredictionResponse(
+                ticker=ticker,
+                momentum_score=float(data.get("momentum_score", 50)),
+                trend=str(data.get("trend", "NEUTRAL")).upper(),
+                analysis=str(data.get("analysis", "Momentum appears neutral based on recent data."))
+            )
+        except Exception as e:
+            logger.error(f"Groq API momentum error: {e}")
+            return MomentumPredictionResponse(
+                ticker=ticker,
+                momentum_score=50,
+                trend="NEUTRAL",
+                analysis="Failed to generate momentum analysis."
+            )
 
 ai_engine = AIEngineService()

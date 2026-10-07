@@ -2,9 +2,20 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.asset_routes import router as asset_router
-from app.api.portfolio_routes import router as portfolio_router
-from app.config import settings
+try:
+    from backend.app.api.asset_routes import router as asset_router
+    from backend.app.api.portfolio_routes import router as portfolio_router
+    from backend.app.api.market_routes import router as market_router
+    from backend.app.api.trading_routes import router as trading_router
+    from backend.app.config import settings
+except ImportError as e:
+    import traceback
+    traceback.print_exc()
+    from app.api.asset_routes import router as asset_router
+    from app.api.portfolio_routes import router as portfolio_router
+    from app.api.market_routes import router as market_router
+    from app.api.trading_routes import router as trading_router
+    from app.config import settings
 
 # Configure logging
 logging.basicConfig(
@@ -34,6 +45,8 @@ app.add_middleware(
 # Include API Routers
 app.include_router(asset_router)
 app.include_router(portfolio_router)
+app.include_router(market_router)
+app.include_router(trading_router)
 
 
 @app.get("/", tags=["Health"])

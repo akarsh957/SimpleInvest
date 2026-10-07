@@ -5,6 +5,13 @@ from .portfolio import (
     PortfolioAuditRequest,
     PortfolioAuditResponse,
 )
+from .market import (
+    MarketTrendItem,
+    MarketTrendsResponse,
+    GrowthScoutRequest,
+    GrowthOpportunity,
+    GrowthScoutResponse,
+)
 
 __all__ = [
     "AssetAnalysisRequest",
@@ -14,4 +21,9 @@ __all__ = [
     "HoldingAuditDetail",
     "PortfolioAuditRequest",
     "PortfolioAuditResponse",
+    "MarketTrendItem",
+    "MarketTrendsResponse",
+    "GrowthScoutRequest",
+    "GrowthOpportunity",
+    "GrowthScoutResponse",
 ]

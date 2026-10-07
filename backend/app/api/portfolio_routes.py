@@ -3,13 +3,22 @@ import logging
 from typing import Dict, List
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas.portfolio import (
-    PortfolioAuditRequest,
-    PortfolioAuditResponse,
-    HoldingAuditDetail,
-)
-from app.services.market_data import MarketDataService
-from app.services.ai_engine import ai_engine
+try:
+    from backend.app.schemas.portfolio import (
+        PortfolioAuditRequest,
+        PortfolioAuditResponse,
+        HoldingAuditDetail,
+    )
+    from backend.app.services.market_data import MarketDataService
+    from backend.app.services.ai_engine import ai_engine
+except ImportError:
+    from app.schemas.portfolio import (
+        PortfolioAuditRequest,
+        PortfolioAuditResponse,
+        HoldingAuditDetail,
+    )
+    from app.services.market_data import MarketDataService
+    from app.services.ai_engine import ai_engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Portfolio Audit"])

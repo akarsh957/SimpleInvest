@@ -28,6 +28,16 @@ export async function login(formData: FormData): Promise<AuthResponse | void> {
   })
 
   if (error) {
+    if (error.message.toLowerCase().includes('api key') || error.message.toLowerCase().includes('apikey')) {
+      return {
+        error: 'Invalid Supabase API key in .env.local. Please copy your valid anon key (starts with eyJ...) from your Supabase Dashboard -> Settings -> API.',
+      }
+    }
+    if (error.message.toLowerCase().includes('email not confirmed')) {
+      return {
+        error: 'Email not confirmed. Please check your inbox, or in Supabase Dashboard go to Authentication -> Providers -> Email and turn off "Confirm email".',
+      }
+    }
     return { error: error.message }
   }
 
@@ -61,6 +71,11 @@ export async function signup(formData: FormData): Promise<AuthResponse | void> {
   })
 
   if (error) {
+    if (error.message.toLowerCase().includes('api key') || error.message.toLowerCase().includes('apikey')) {
+      return {
+        error: 'Invalid Supabase API key in .env.local. Please copy your valid anon key (starts with eyJ...) from your Supabase Dashboard -> Settings -> API.',
+      }
+    }
     return { error: error.message }
   }
 

@@ -1,8 +1,13 @@
 import logging
 from fastapi import APIRouter, HTTPException, status
-from app.schemas.asset import AssetAnalysisRequest, AssetAnalysisResponse
-from app.services.market_data import MarketDataService
-from app.services.ai_engine import ai_engine
+try:
+    from backend.app.schemas.asset import AssetAnalysisRequest, AssetAnalysisResponse
+    from backend.app.services.market_data import MarketDataService
+    from backend.app.services.ai_engine import ai_engine
+except ImportError:
+    from app.schemas.asset import AssetAnalysisRequest, AssetAnalysisResponse
+    from app.services.market_data import MarketDataService
+    from app.services.ai_engine import ai_engine
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Asset Analysis"])
