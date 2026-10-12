@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/client';
 
 export interface AccountBalance {
     balance: number;
@@ -16,7 +16,7 @@ export interface Holding {
 export function useRealtimePortfolio(userId: string | undefined) {
     const [balance, setBalance] = useState<number | null>(null);
     const [holdings, setHoldings] = useState<Holding[]>([]);
-    const supabase = createClientComponentClient();
+    const supabase = createClient();
 
     useEffect(() => {
         if (!userId) return;
@@ -44,7 +44,7 @@ export function useRealtimePortfolio(userId: string | undefined) {
         // Subscribe to changes
         const accountsSubscription = supabase
             .channel('accounts_channel')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${userId}` }, (payload) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${userId}` }, (payload: any) => {
                 const newData = payload.new as { balance: number };
                 if (newData && newData.balance !== undefined) {
                     setBalance(newData.balance);
@@ -54,7 +54,7 @@ export function useRealtimePortfolio(userId: string | undefined) {
 
         const holdingsSubscription = supabase
             .channel('holdings_channel')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${userId}` }, (payload) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${userId}` }, (payload: any) => {
                 fetchInitialData(); // Re-fetch on any holdings change to simplify state management
             })
             .subscribe();

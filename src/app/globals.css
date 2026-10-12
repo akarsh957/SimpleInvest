@@ -84,32 +84,32 @@ body {
   transform: translateY(-2px);
 }
 
-.obsidian-cyan-card {
+.obsidian-gold-card {
   position: relative;
-  background: rgba(15, 15, 15, 0.4);
+  background: rgba(20, 18, 14, 0.6);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.15);
   border-radius: 1rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255,255,255,0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9), inset 0 1px 1px rgba(212, 175, 55, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
 
-.obsidian-cyan-card::before {
+.obsidian-gold-card::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.6) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 215, 0, 0.8) 50%, transparent 100%);
 }
 
-.obsidian-cyan-card:hover {
-  background: rgba(20, 20, 20, 0.6);
-  border-color: rgba(212, 175, 55, 0.4);
-  box-shadow: 0 12px 40px -10px rgba(212, 175, 55, 0.2), inset 0 1px 1px rgba(255,255,255,0.08);
+.obsidian-gold-card:hover {
+  background: rgba(30, 25, 18, 0.8);
+  border-color: rgba(255, 215, 0, 0.5);
+  box-shadow: 0 12px 40px -10px rgba(212, 175, 55, 0.4), inset 0 1px 1px rgba(255, 215, 0, 0.2);
   transform: translateY(-2px);
 }
 

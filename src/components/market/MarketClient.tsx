@@ -22,17 +22,18 @@ import {
 import { Navbar } from "@/src/components/dashboard/Navbar";
 import { Portfolio } from "@/src/types/portfolio";
 import { Button } from "@/src/components/ui/button";
+import { StockForecastModal } from "./StockForecastModal";
 
 interface MarketTrendItem {
-  ticker: str;
-  company_name: str;
-  sector: str;
-  currency: str;
+  ticker: string;
+  company_name: string;
+  sector: string;
+  currency: string;
   current_price: number;
   change: number;
   change_percent: number;
   volume: number;
-  volume_formatted: str;
+  volume_formatted: string;
   fifty_two_week_low?: number;
   fifty_two_week_high?: number;
   sparkline: number[];
@@ -140,6 +141,7 @@ export function MarketClient({
   const [lastRefreshed, setLastRefreshed] = useState<string>("");
 
   const [aiModalTicker, setAiModalTicker] = useState<string | null>(null);
+  const [selectedForecastTicker, setSelectedForecastTicker] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -247,10 +249,10 @@ export function MarketClient({
           <div>
             <div className="flex items-center space-x-3 mb-2">
               <span className="flex h-3 w-3 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
               </span>
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/30 tracking-wide uppercase">
+              <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400 border border-amber-500/30 tracking-wide uppercase">
                 Real-Time Market Terminal
               </span>
               <span className="hidden sm:inline text-xs text-slate-400 font-mono">
@@ -259,7 +261,7 @@ export function MarketClient({
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-              Global & Indian <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">Market Trends</span>
+              Global & Indian <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-200">Market Trends</span>
             </h1>
             <p className="mt-1 text-sm text-slate-400 max-w-2xl">
               Institutional-grade market quotes, 52-week price channels, volume spikes, and 7-day sparkline trajectories powered by yfinance & Groq AI.
@@ -299,14 +301,20 @@ export function MarketClient({
 
           {/* Card 2: Top Gainer */}
           {topGainer && (
-            <div className="obsidian-glass-card p-5 space-y-2 border-emerald-500/20">
+            <div 
+              onClick={() => setSelectedForecastTicker(topGainer.ticker)}
+              className="obsidian-glass-card p-5 space-y-2 border-emerald-500/20 cursor-pointer hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-950/40 transition group"
+            >
               <div className="flex items-center justify-between text-xs font-semibold text-emerald-400 uppercase tracking-wider">
                 <span>Top Growth Leader</span>
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
+                <div className="flex items-center space-x-1">
+                  <TrendingUp className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition" />
+                  <span className="text-[10px] text-emerald-400/80 font-normal">Graph ↗</span>
+                </div>
               </div>
               <div className="flex items-baseline justify-between">
                 <div>
-                  <span className="text-lg font-bold text-white">{topGainer.ticker}</span>
+                  <span className="text-lg font-bold text-white group-hover:text-emerald-300 transition">{topGainer.ticker}</span>
                   <p className="text-[11px] text-slate-400 truncate max-w-[120px]">{topGainer.company_name}</p>
                 </div>
                 <div className="text-right">
@@ -319,14 +327,20 @@ export function MarketClient({
 
           {/* Card 3: Top Dip */}
           {topLoser && (
-            <div className="obsidian-glass-card p-5 space-y-2 border-rose-500/20">
+            <div 
+              onClick={() => setSelectedForecastTicker(topLoser.ticker)}
+              className="obsidian-glass-card p-5 space-y-2 border-rose-500/20 cursor-pointer hover:border-rose-500/50 hover:shadow-lg hover:shadow-rose-950/40 transition group"
+            >
               <div className="flex items-center justify-between text-xs font-semibold text-rose-400 uppercase tracking-wider">
                 <span>Biggest Pullback</span>
-                <TrendingDown className="h-4 w-4 text-rose-400" />
+                <div className="flex items-center space-x-1">
+                  <TrendingDown className="h-4 w-4 text-rose-400 group-hover:scale-110 transition" />
+                  <span className="text-[10px] text-rose-400/80 font-normal">Graph ↗</span>
+                </div>
               </div>
               <div className="flex items-baseline justify-between">
                 <div>
-                  <span className="text-lg font-bold text-white">{topLoser.ticker}</span>
+                  <span className="text-lg font-bold text-white group-hover:text-rose-300 transition">{topLoser.ticker}</span>
                   <p className="text-[11px] text-slate-400 truncate max-w-[120px]">{topLoser.company_name}</p>
                 </div>
                 <div className="text-right">
@@ -339,22 +353,29 @@ export function MarketClient({
 
           {/* Card 4: Highest Volume */}
           {volumeLeader && (
-            <div className="obsidian-cyan-card p-5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-cyan-400 uppercase tracking-wider">
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+              onClick={() => setSelectedForecastTicker(volumeLeader.ticker)}
+              className="obsidian-gold-card p-5 space-y-2 cursor-pointer hover:border-yellow-500/50 hover:shadow-lg hover:shadow-yellow-950/40 transition group"
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-yellow-400 uppercase tracking-wider">
                 <span>Volume King</span>
-                <Flame className="h-4 w-4 text-cyan-400" />
+                <div className="flex items-center space-x-1">
+                  <Flame className="h-4 w-4 text-yellow-400 group-hover:scale-110 transition" />
+                  <span className="text-[10px] text-yellow-400/80 font-normal">Graph ↗</span>
+                </div>
               </div>
               <div className="flex items-baseline justify-between">
                 <div>
-                  <span className="text-lg font-bold text-white">{volumeLeader.ticker}</span>
+                  <span className="text-lg font-bold text-white group-hover:text-yellow-300 transition">{volumeLeader.ticker}</span>
                   <p className="text-[11px] text-slate-400 truncate max-w-[120px]">{volumeLeader.company_name}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xl font-extrabold text-cyan-400 font-mono">{volumeLeader.volume_formatted}</span>
+                  <span className="text-xl font-extrabold text-yellow-400 font-mono">{volumeLeader.volume_formatted}</span>
                   <p className="text-[11px] text-slate-400">Shares Traded</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
         </div>
@@ -454,12 +475,20 @@ export function MarketClient({
                     const posPct = Math.min(100, Math.max(0, ((item.current_price - low) / (high - low || 1)) * 100));
 
                     return (
-                      <tr key={item.ticker} className="hover:bg-white/[0.04] transition-colors group">
+                      <motion.tr 
+                        key={item.ticker} 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.3 }}
+                        onClick={() => setSelectedForecastTicker(item.ticker)}
+                        className="hover:bg-white/[0.06] transition-all cursor-pointer group relative"
+                        title={`Click to open past, present & AI future chart for ${item.ticker}`}
+                      >
                         
                         {/* Company & Ticker */}
                         <td className="py-4 px-4">
                           <div className="flex items-center space-x-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] border border-white/[0.08] font-bold text-white font-mono group-hover:border-emerald-500/40 transition">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] border border-white/[0.08] font-bold text-white font-mono group-hover:border-emerald-500/50 group-hover:bg-emerald-500/10 group-hover:text-emerald-400 transition">
                               {item.ticker.substring(0, 2)}
                             </div>
                             <div>
@@ -467,6 +496,9 @@ export function MarketClient({
                                 <span className="font-extrabold text-sm text-white group-hover:text-emerald-400 transition">{item.ticker}</span>
                                 <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-slate-400">
                                   {item.sector}
+                                </span>
+                                <span className="opacity-0 group-hover:opacity-100 transition-opacity rounded bg-emerald-500/20 text-emerald-300 text-[9px] font-bold px-1.5 py-0.2 border border-emerald-500/30">
+                                  Deep Graph ↗
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-400 truncate max-w-[180px]">{item.company_name}</p>
@@ -496,7 +528,7 @@ export function MarketClient({
 
                         {/* Sparkline Chart */}
                         <td className="py-4 px-4 text-center">
-                          <div className="flex justify-center">
+                          <div className="flex justify-center group-hover:scale-105 transition">
                             <SparklineChart data={item.sparkline} isPositive={isPos} />
                           </div>
                         </td>
@@ -525,17 +557,33 @@ export function MarketClient({
 
                         {/* Action */}
                         <td className="py-4 px-4 text-right">
-                          <Button
-                            onClick={() => handleAnalyzeStock(item.ticker)}
-                            variant="outline"
-                            size="sm"
-                            className="border-emerald-500/30 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 text-xs font-semibold transition shadow-sm"
-                          >
-                            <Sparkles className="h-3.5 w-3.5 mr-1" />
-                            <span>AI Vibe</span>
-                          </Button>
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedForecastTicker(item.ticker);
+                              }}
+                              size="sm"
+                              className="border-emerald-500/40 bg-emerald-500 text-slate-950 hover:bg-emerald-400 text-xs font-bold transition shadow-sm flex items-center space-x-1 shadow-emerald-500/20"
+                            >
+                              <BarChart3 className="h-3.5 w-3.5" />
+                              <span>AI Graph</span>
+                            </Button>
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAnalyzeStock(item.ticker);
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.08] text-xs font-medium transition"
+                              title="Plain-English summary"
+                            >
+                              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                            </Button>
+                          </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     );
                   })
                 )}
@@ -558,7 +606,7 @@ export function MarketClient({
             >
               <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 text-slate-950 font-extrabold text-lg">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-950 font-extrabold text-lg">
                     {aiModalTicker.substring(0, 2)}
                   </div>
                   <div>
@@ -622,6 +670,17 @@ export function MarketClient({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Big Interactive Past, Present & AI Future Forecast Modal */}
+      {selectedForecastTicker && (
+        <StockForecastModal
+          ticker={selectedForecastTicker}
+          onClose={() => setSelectedForecastTicker(null)}
+          onTrade={(ticker) => {
+            console.log("Trade requested for:", ticker);
+          }}
+        />
+      )}
 
     </div>
   );

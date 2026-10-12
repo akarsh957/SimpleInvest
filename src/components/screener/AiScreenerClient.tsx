@@ -26,6 +26,7 @@ import { Button } from "@/src/components/ui/button";
 interface GrowthOpportunity {
   ticker: string;
   company_name: string;
+  recommendation_action: string;
   growth_catalyst: string;
   potential_upside_range: string;
   risk_level: string;
@@ -45,6 +46,7 @@ const INITIAL_FALLBACK_RECOMMENDATIONS: GrowthOpportunity[] = [
   {
     ticker: "NVDA",
     company_name: "NVIDIA Corporation",
+    recommendation_action: "BUY",
     growth_catalyst: "Uncontested global monopoly in AI accelerators and datacenter GPU architecture, powered by enterprise LLM deployments.",
     potential_upside_range: "15% - 25% over 12 months",
     risk_level: "Moderate",
@@ -55,6 +57,7 @@ const INITIAL_FALLBACK_RECOMMENDATIONS: GrowthOpportunity[] = [
   {
     ticker: "MSFT",
     company_name: "Microsoft Corporation",
+    recommendation_action: "BUY",
     growth_catalyst: "Azure Cloud scaling rapidly with integrated OpenAI Copilot features enterprise-wide across Office and Developer suites.",
     potential_upside_range: "15% - 22% over 12 months",
     risk_level: "Low",
@@ -65,6 +68,7 @@ const INITIAL_FALLBACK_RECOMMENDATIONS: GrowthOpportunity[] = [
   {
     ticker: "RELIANCE.NS",
     company_name: "Reliance Industries Ltd.",
+    recommendation_action: "BUY",
     growth_catalyst: "5G monetization via Jio Telecom paired with rapid expansion of Retail store footprints and green hydrogen investments.",
     potential_upside_range: "18% - 25% over 12 months",
     risk_level: "Moderate",
@@ -75,6 +79,7 @@ const INITIAL_FALLBACK_RECOMMENDATIONS: GrowthOpportunity[] = [
   {
     ticker: "HDFCBANK.NS",
     company_name: "HDFC Bank Limited",
+    recommendation_action: "BUY",
     growth_catalyst: "Post-merger deposit accretion and branch network expansion expanding net interest margins in fast-growing urban hubs.",
     potential_upside_range: "14% - 20% over 12 months",
     risk_level: "Low",
@@ -166,10 +171,10 @@ export function AiScreenerClient({
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-              AI Growth Opportunity <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-600">Radar</span>
+              AI Trading <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-600">Radar</span>
             </h1>
             <p className="mt-1 text-sm text-slate-400 max-w-2xl">
-              Automated quantitative screening analyzing Forward P/E, PEG velocity, revenue momentum, and balance sheet debt to detect structural growth catalysts.
+              Automated quantitative screening monitoring the top 100 global watchlist. Generates real-time Buy and Sell recommendations by analyzing P/E, PEG velocity, and revenue momentum.
             </p>
           </div>
 
@@ -282,7 +287,7 @@ export function AiScreenerClient({
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white flex items-center space-x-2">
               <Award className="h-5 w-5 text-amber-400" />
-              <span>High-Conviction Growth Opportunities ({recommendations.length})</span>
+              <span>AI Buy & Sell Recommendations ({recommendations.length})</span>
             </h2>
             <span className="text-xs text-slate-400 font-mono">
               Strict Pydantic JSON Output Verified
@@ -302,6 +307,8 @@ export function AiScreenerClient({
               {recommendations.map((opp, idx) => {
                 const isAggressive = opp.risk_level.toLowerCase() === "high";
                 const isModerate = opp.risk_level.toLowerCase() === "moderate";
+                const isBuy = opp.recommendation_action?.toUpperCase() === "BUY";
+                const isSell = opp.recommendation_action?.toUpperCase() === "SELL";
 
                 return (
                   <motion.div
@@ -324,6 +331,13 @@ export function AiScreenerClient({
                               {opp.ticker}
                             </span>
                             <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border uppercase tracking-wider ${
+                              isBuy ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : 
+                              isSell ? "bg-rose-500/10 text-rose-400 border-rose-500/30" :
+                              "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                            }`}>
+                              {opp.recommendation_action}
+                            </span>
+                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border uppercase tracking-wider hidden sm:inline-block ${
                               isAggressive
                                 ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                                 : isModerate
@@ -364,7 +378,7 @@ export function AiScreenerClient({
                     <div className="space-y-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
                         <Sparkles className="h-3 w-3" />
-                        Growth Catalyst & Tailwinds
+                        {isBuy ? "Growth Catalyst & Tailwinds" : "Reasons to Sell / Headwinds"}
                       </span>
                       <p className="text-xs text-slate-200 leading-relaxed font-normal">
                         {opp.growth_catalyst}

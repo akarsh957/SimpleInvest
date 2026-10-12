@@ -17,9 +17,9 @@ const RISK_CONFIGS: Record<string, RiskVibeConfig> = {
     label: "Smooth Ride",
     range: "Defensive Low Volatility (Beta < 0.8)",
     score: 22,
-    color: "bg-emerald-500",
-    badgeBg: "bg-emerald-950/80 text-emerald-300 border-emerald-500/30",
-    borderColor: "border-emerald-500",
+    color: "bg-slate-400",
+    badgeBg: "bg-slate-900/80 text-slate-300 border-slate-500/30",
+    borderColor: "border-slate-500",
     description: "Low-volatility defensive holdings. Stock prices move gently and insulate your portfolio during market corrections.",
     metaphor: "🚗 Cruising smoothly in a luxury sedan on a calm highway.",
   },
@@ -27,9 +27,9 @@ const RISK_CONFIGS: Record<string, RiskVibeConfig> = {
     label: "Moderate Bumps",
     range: "Balanced Market Index (Beta 0.8 - 1.25)",
     score: 52,
-    color: "bg-blue-500",
-    badgeBg: "bg-blue-950/80 text-blue-300 border-blue-500/30",
-    borderColor: "border-blue-500",
+    color: "bg-zinc-400",
+    badgeBg: "bg-zinc-900/80 text-zinc-300 border-zinc-500/30",
+    borderColor: "border-zinc-500",
     description: "Tracks standard stock market movements closely. Offers healthy long-term growth with expected daily swings.",
     metaphor: "🚘 Steady driving on an open highway with minor traffic.",
   },
@@ -47,9 +47,9 @@ const RISK_CONFIGS: Record<string, RiskVibeConfig> = {
     label: "Wild Ride",
     range: "Speculative / High Risk (Beta > 1.8)",
     score: 95,
-    color: "bg-rose-500",
-    badgeBg: "bg-rose-950/80 text-rose-300 border-rose-500/30",
-    borderColor: "border-rose-500",
+    color: "bg-orange-500",
+    badgeBg: "bg-orange-950/80 text-orange-300 border-orange-500/30",
+    borderColor: "border-orange-500",
     description: "Highly speculative positions. Rapid double-digit swings are frequent. High upside with substantial drawdowns.",
     metaphor: "🚀 High-velocity rocket with intense acceleration.",
   },
@@ -65,13 +65,13 @@ export function RiskGauge({ riskVibe = "Moderate Bumps", diversificationScore = 
   const getRiskIcon = () => {
     switch (config.label) {
       case "Smooth Ride":
-        return <ShieldCheck className="h-4 w-4 text-emerald-400" />;
+        return <ShieldCheck className="h-4 w-4 text-slate-400" />;
       case "Moderate Bumps":
-        return <Zap className="h-4 w-4 text-blue-400" />;
+        return <Zap className="h-4 w-4 text-zinc-400" />;
       case "Rollercoaster":
         return <AlertTriangle className="h-4 w-4 text-amber-400" />;
       case "Wild Ride":
-        return <Flame className="h-4 w-4 text-rose-400" />;
+        return <Flame className="h-4 w-4 text-orange-400" />;
     }
   };
 
@@ -93,7 +93,7 @@ export function RiskGauge({ riskVibe = "Moderate Bumps", diversificationScore = 
     <Card className="overflow-hidden border border-slate-800 bg-slate-900/90 shadow-xl backdrop-blur-xl">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div className="flex items-center space-x-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-emerald-400">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 border border-slate-700 text-amber-400">
             <Activity className="h-5 w-5" />
           </div>
           <div>
@@ -114,18 +114,18 @@ export function RiskGauge({ riskVibe = "Moderate Bumps", diversificationScore = 
         {/* Custom Visual Meter / Gauge */}
         <div className="relative pt-2">
           <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-2 uppercase tracking-widest font-mono">
-            <span className="text-emerald-400">Smooth (Low)</span>
-            <span className="text-blue-400">Moderate (Balanced)</span>
+            <span className="text-slate-400">Smooth (Low)</span>
+            <span className="text-zinc-400">Moderate (Balanced)</span>
             <span className="text-amber-400">Bumpy (High)</span>
-            <span className="text-rose-400">Wild (Extreme)</span>
+            <span className="text-orange-400">Wild (Extreme)</span>
           </div>
 
           {/* Bar track */}
           <div className="relative h-4 w-full overflow-hidden rounded-full bg-slate-950 flex border border-slate-800 p-0.5">
-            <div className="w-1/4 rounded-l-full bg-gradient-to-r from-emerald-500/80 to-emerald-400/80" />
-            <div className="w-1/4 bg-gradient-to-r from-blue-500/80 to-blue-400/80" />
-            <div className="w-1/4 bg-gradient-to-r from-amber-500/80 to-amber-400/80" />
-            <div className="w-1/4 rounded-r-full bg-gradient-to-r from-rose-500/80 to-rose-400/80" />
+            <div className="w-1/4 rounded-l-full bg-gradient-to-r from-slate-600/80 to-slate-400/80" />
+            <div className="w-1/4 bg-gradient-to-r from-zinc-600/80 to-zinc-400/80" />
+            <div className="w-1/4 bg-gradient-to-r from-amber-600/80 to-amber-400/80" />
+            <div className="w-1/4 rounded-r-full bg-gradient-to-r from-orange-600/80 to-orange-400/80" />
           </div>
 
           {/* Dynamic Pin Indicator */}

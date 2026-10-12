@@ -11,6 +11,10 @@ from .market import (
     GrowthScoutRequest,
     GrowthOpportunity,
     GrowthScoutResponse,
+    ChartPoint,
+    AIForecastInsights,
+    StockForecastRequest,
+    StockForecastResponse,
 )
 
 __all__ = [
@@ -26,4 +30,8 @@ __all__ = [
     "GrowthScoutRequest",
     "GrowthOpportunity",
     "GrowthScoutResponse",
+    "ChartPoint",
+    "AIForecastInsights",
+    "StockForecastRequest",
+    "StockForecastResponse",
 ]

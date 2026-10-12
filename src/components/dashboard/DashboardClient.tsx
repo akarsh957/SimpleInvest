@@ -25,6 +25,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { motion } from "framer-motion";
 import { Navbar } from "@/src/components/dashboard/Navbar";
 import { RiskGauge } from "@/src/components/dashboard/RiskGauge";
 import { HoldingsTable } from "@/src/components/dashboard/HoldingsTable";
@@ -314,81 +315,109 @@ export function DashboardClient({
         {/* Hero KPI Summary Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Invested Card */}
-          <Card className="obsidian-glass-card">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Capital Invested
-                </span>
-                <p className="text-xl sm:text-2xl font-extrabold text-white mt-1 font-mono tabular-nums">
-                  {formatCurrency(totalInvested)}
-                </p>
-                <span className="text-[11px] text-slate-400 font-medium">
-                  {holdings.length} Active Asset Positions
-                </span>
-              </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-800 text-slate-300 border border-slate-700">
-                <DollarSign className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <Card className="obsidian-glass-card h-full">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Capital Invested
+                  </span>
+                  <p className="text-xl sm:text-2xl font-extrabold text-white mt-1 font-mono tabular-nums">
+                    {formatCurrency(totalInvested)}
+                  </p>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {holdings.length} Active Asset Positions
+                  </span>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-800/80 text-slate-300 border border-slate-700">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
           {/* Current Real-time Valuation Card */}
-          <Card className="obsidian-glass-card">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Real-time Valuation
-                </span>
-                <p className="text-xl sm:text-2xl font-extrabold text-amber-400 mt-1 font-mono tabular-nums">
-                  {formatCurrency(totalEstimatedValue)}
-                </p>
-                <span className="inline-flex items-center text-[11px] font-bold text-amber-400">
-                  <ArrowUpRight className="h-3.5 w-3.5 mr-0.5" />
-                  {profitPercentage >= 0 ? `+${profitPercentage.toFixed(2)}%` : `${profitPercentage.toFixed(2)}%`} Total P&L
-                </span>
-              </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-950/50 text-amber-400 border border-amber-500/30">
-                <TrendingUp className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <Card className="obsidian-glass-card h-full">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Real-time Valuation
+                  </span>
+                  <p className="text-xl sm:text-2xl font-extrabold text-amber-400 mt-1 font-mono tabular-nums">
+                    {formatCurrency(totalEstimatedValue)}
+                  </p>
+                  <span className="inline-flex items-center text-[11px] font-bold text-amber-400">
+                    <ArrowUpRight className="h-3.5 w-3.5 mr-0.5" />
+                    {profitPercentage >= 0 ? `+${profitPercentage.toFixed(2)}%` : `${profitPercentage.toFixed(2)}%`} Total P&L
+                  </span>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-950/40 text-amber-400 border border-amber-500/30">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
           {/* Volatility Vibe Rating Card */}
-          <Card className="obsidian-glass-card">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Risk Vibe Profile
-                </span>
-                <p className="text-base sm:text-lg font-extrabold text-white mt-1 truncate max-w-[140px]">
-                  {auditData?.portfolio_risk_vibe || "Moderate Bumps"}
-                </p>
-                <span className="text-[11px] text-slate-400">Beta Rating Metric</span>
-              </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-950/80 text-blue-400 border border-blue-500/30">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.3 }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <Card className="obsidian-glass-card h-full">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Risk Vibe Profile
+                  </span>
+                  <p className="text-base sm:text-lg font-extrabold text-white mt-1 truncate max-w-[140px]">
+                    {auditData?.portfolio_risk_vibe || "Moderate Bumps"}
+                  </p>
+                  <span className="text-[11px] text-slate-400">Beta Rating Metric</span>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/80 text-amber-500 border border-amber-600/30">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
           {/* Diversification Score Card */}
-          <Card className="obsidian-glass-card">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Diversification Score
-                </span>
-                <p className="text-xl sm:text-2xl font-extrabold text-indigo-400 mt-1 font-mono tabular-nums">
-                  {auditData?.diversification_score ? `${auditData.diversification_score}/100` : "—"}
-                </p>
-                <span className="text-[11px] text-slate-400">Sector Entropy Rating</span>
-              </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-950/80 text-indigo-400 border border-indigo-500/30">
-                <PieChart className="h-5 w-5" />
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            whileHover={{ scale: 1.02 }}
+          >
+            <Card className="obsidian-glass-card h-full">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Diversification Score
+                  </span>
+                  <p className="text-xl sm:text-2xl font-extrabold text-slate-300 mt-1 font-mono tabular-nums">
+                    {auditData?.diversification_score ? `${auditData.diversification_score}/100` : "—"}
+                  </p>
+                  <span className="text-[11px] text-slate-400">Sector Entropy Rating</span>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-900/80 text-slate-300 border border-slate-500/30">
+                  <PieChart className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
         </div>
 
         {/* Portfolio Valuation & Benchmark Performance Chart */}
@@ -436,8 +465,8 @@ export function DashboardClient({
                       <stop offset="95%" stopColor="#d4af37" stopOpacity={0.0} />
                     </linearGradient>
                     <linearGradient id="benchmarkColor" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#94a3b8" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -462,7 +491,7 @@ export function DashboardClient({
                     type="monotone"
                     dataKey="benchmark"
                     name="S&P 500 Benchmark"
-                    stroke="#3b82f6"
+                    stroke="#94a3b8"
                     strokeWidth={1.5}
                     strokeDasharray="4 4"
                     fillOpacity={1}
