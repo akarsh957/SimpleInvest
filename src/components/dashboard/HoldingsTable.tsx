@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Trash2, Plus, Layers, Search, ArrowUpDown, Filter, TrendingUp, TrendingDown } from "lucide-react";
+import { Trash2, Plus, Search, ArrowUpDown } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -11,11 +11,10 @@ import {
   TableRow,
 } from "@/src/components/ui/table";
 import { Button } from "@/src/components/ui/button";
-import { Badge } from "@/src/components/ui/badge";
 import { Skeleton } from "@/src/components/ui/skeleton";
-import { Card, CardHeader, CardTitle, CardContent } from "@/src/components/ui/card";
 import { Holding, HoldingAuditDetail } from "@/src/types/portfolio";
 import { formatCurrency } from "@/src/lib/utils";
+import { TradeModal } from "@/src/components/trading/TradeModal";
 
 interface HoldingsTableProps {
   holdings: Holding[];
@@ -23,6 +22,8 @@ interface HoldingsTableProps {
   isLoading?: boolean;
   onDeleteHolding: (id: string) => Promise<void>;
   onOpenAddModal: () => void;
+  userId?: string;
+  onTradeSuccess?: () => void;
 }
 
 export function HoldingsTable({
@@ -31,12 +32,21 @@ export function HoldingsTable({
   isLoading,
   onDeleteHolding,
   onOpenAddModal,
+  userId,
+  onTradeSuccess,
 }: HoldingsTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSector, setSelectedSector] = useState("ALL");
   const [sortField, setSortField] = useState<"ticker" | "invested" | "weight_percentage">("invested");
   const [sortAsc, setSortAsc] = useState(false);
+
+  // Trade modal state
+  const [tradeTarget, setTradeTarget] = useState<{
+    ticker: string;
+    price: number;
+    side: "BUY" | "SELL";
+  } | null>(null);
 
   // Merge holdings with FastAPI audit detailed metrics
   const mergedHoldings = useMemo(() => {
@@ -48,12 +58,14 @@ export function HoldingsTable({
       const currentValue = detail?.current_value || invested;
       const gainLoss = currentValue - invested;
       const gainLossPercent = invested > 0 ? (gainLoss / invested) * 100 : 0;
+      const currentPrice = h.shares > 0 ? currentValue / h.shares : h.average_buy_price;
 
       return {
         ...h,
         company_name: detail?.company_name || h.ticker.replace(".NS", "").replace(".BO", ""),
         sector: detail?.sector || "Technology",
         current_value: currentValue,
+        current_price: currentPrice,
         gainLoss,
         gainLossPercent,
         weight_percentage: detail?.weight_percentage || 0,
@@ -101,7 +113,7 @@ export function HoldingsTable({
   };
 
   const handleDelete = async (id: string, ticker: string) => {
-    if (confirm(`Are you sure you want to remove ${ticker} from your portfolio?`)) {
+    if (confirm(`Remove position ${ticker}?`)) {
       setDeletingId(id);
       try {
         await onDeleteHolding(id);
@@ -111,216 +123,256 @@ export function HoldingsTable({
     }
   };
 
-  const getVibeBadge = (vibe: string) => {
-    switch (vibe) {
-      case "Smooth Ride":
-        return <Badge variant="success" className="bg-emerald-950/80 text-emerald-300 border-emerald-500/30">Smooth</Badge>;
-      case "Moderate Bumps":
-        return <Badge variant="info" className="bg-blue-950/80 text-blue-300 border-blue-500/30">Moderate</Badge>;
-      case "Rollercoaster":
-        return <Badge variant="warning" className="bg-amber-950/80 text-amber-300 border-amber-500/30">Bumpy</Badge>;
-      case "Wild Ride":
-        return <Badge variant="destructive" className="bg-rose-950/80 text-rose-300 border-rose-500/30">Wild</Badge>;
-      default:
-        return <Badge variant="secondary" className="bg-slate-800 text-slate-300">{vibe}</Badge>;
+  const renderVolatilityIndicator = (vibe: string) => {
+    const v = vibe.toLowerCase();
+    if (v.includes("smooth") || v.includes("low")) {
+      return (
+        <span className="font-mono text-xs text-zinc-300 inline-flex items-center gap-1.5">
+          <span className="text-emerald-400 text-[10px]">●</span> Low
+        </span>
+      );
     }
+    if (v.includes("moderate") || v.includes("steady") || v.includes("balanced")) {
+      return (
+        <span className="font-mono text-xs text-zinc-300 inline-flex items-center gap-1.5">
+          <span className="text-zinc-400 text-[10px]">●</span> Moderate
+        </span>
+      );
+    }
+    return (
+      <span className="font-mono text-xs text-zinc-300 inline-flex items-center gap-1.5">
+        <span className="text-rose-400 text-[10px]">●</span> High
+      </span>
+    );
   };
 
   if (isLoading) {
     return (
-      <Card className="border border-slate-800 bg-slate-900/80 shadow-xl">
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <Skeleton className="h-6 w-40 bg-slate-800" />
-          <Skeleton className="h-9 w-28 bg-slate-800" />
-        </CardHeader>
-        <CardContent className="space-y-3 p-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-xl bg-slate-800/60" />
-          ))}
-        </CardContent>
-      </Card>
+      <div className="border border-zinc-800/80 bg-[#0f0f12] rounded-md p-5 space-y-3">
+        <Skeleton className="h-6 w-40 bg-zinc-800" />
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-10 w-full bg-zinc-900 rounded" />
+        ))}
+      </div>
     );
   }
 
   return (
-    <Card className="obsidian-glass-card">
-      <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800/80">
-        <div className="flex items-center space-x-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-950/80 border border-amber-500/30 text-amber-400">
-            <Layers className="h-5 w-5" />
-          </div>
-          <div>
-            <CardTitle className="text-base font-extrabold text-white flex items-center space-x-2">
-              <span>Portfolio Asset Positions</span>
-              <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-400 font-mono">
-                {holdings.length}
-              </span>
-            </CardTitle>
-            <p className="text-xs text-slate-400">
-              Real-time positions breakdown, average costs, and risk vibes
-            </p>
-          </div>
-        </div>
-
-        <Button
-          onClick={onOpenAddModal}
-          variant="gradient"
-          size="sm"
-          className="shadow-lg font-bold"
-        >
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add Asset Position
-        </Button>
-      </CardHeader>
-
-      {/* Filter & Search Toolbar */}
-      {holdings.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 border-b border-slate-800/60 bg-slate-950/40">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search position or ticker..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
-            />
+    <>
+      <div className="border border-zinc-800/80 bg-[#0f0f12] rounded-md overflow-hidden">
+        {/* Table Header Bar */}
+        <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80">
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+              POSITIONS
+            </span>
+            <span className="text-zinc-600 font-mono text-xs">•</span>
+            <span className="font-mono text-xs text-zinc-500 tabular-nums">
+              {holdings.length} ASSETS
+            </span>
           </div>
 
-          {/* Sector Pill Tabs */}
-          <div className="flex items-center space-x-1 overflow-x-auto max-w-full pb-1 sm:pb-0">
-            {sectors.map((sec) => (
-              <button
-                key={sec}
-                onClick={() => setSelectedSector(sec)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap transition ${
-                  selectedSector === sec
-                    ? "bg-amber-600/80 text-white shadow-sm"
-                    : "bg-slate-800/60 text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                {sec}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <CardContent className="p-0">
-        {holdings.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-950/60 text-amber-400 mb-3 border border-amber-500/30 shadow-lg">
-              <Layers className="h-7 w-7" />
+          <div className="flex items-center space-x-2">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Filter positions..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-7 w-44 rounded bg-zinc-900 border border-zinc-800 pl-8 pr-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700"
+              />
             </div>
-            <h4 className="text-base font-bold text-white">
-              No holdings in this portfolio yet
-            </h4>
-            <p className="mt-1 text-xs text-slate-400 max-w-sm leading-relaxed">
-              Add your stock tickers (e.g. AAPL, NVDA, TSLA, SPY) to enable instant AI plain-English risk diagnostics.
-            </p>
-            <Button
+
+            {/* Sector filter */}
+            {sectors.length > 2 && (
+              <select
+                value={selectedSector}
+                onChange={(e) => setSelectedSector(e.target.value)}
+                className="h-7 rounded bg-zinc-900 border border-zinc-800 px-2 text-xs font-mono text-zinc-300 focus:outline-none focus:border-zinc-700 cursor-pointer"
+              >
+                {sectors.map((sec) => (
+                  <option key={sec} value={sec} className="bg-zinc-950 text-zinc-200">
+                    {sec}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
               onClick={onOpenAddModal}
-              variant="outline"
-              size="sm"
-              className="mt-5 border-amber-500/40 text-amber-400 hover:bg-amber-950/60 font-semibold"
+              className="h-7 px-2.5 rounded bg-zinc-100 text-zinc-950 hover:bg-white text-xs font-medium flex items-center space-x-1 transition-colors"
             >
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Your First Asset Position
-            </Button>
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Table Content */}
+        {holdings.length === 0 ? (
+          <div className="py-12 text-center text-zinc-500 font-mono text-xs">
+            NO OPEN POSITIONS IN ACTIVE BOOK
           </div>
         ) : (
-          <Table>
-            <TableHeader className="bg-slate-950/60">
-              <TableRow className="border-b border-slate-800 hover:bg-transparent">
-                <TableHead className="text-slate-400 text-xs uppercase font-bold">
-                  <button onClick={() => toggleSort("ticker")} className="flex items-center space-x-1 hover:text-white">
-                    <span>Asset / Sector</span>
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-right text-slate-400 text-xs uppercase font-bold">Shares</TableHead>
-                <TableHead className="text-right text-slate-400 text-xs uppercase font-bold">Avg Buy Price</TableHead>
-                <TableHead className="text-right text-slate-400 text-xs uppercase font-bold">
-                  <button onClick={() => toggleSort("invested")} className="flex items-center space-x-1 ml-auto hover:text-white">
-                    <span>Invested Capital</span>
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-center text-slate-400 text-xs uppercase font-bold">
-                  <button onClick={() => toggleSort("weight_percentage")} className="flex items-center space-x-1 mx-auto hover:text-white">
-                    <span>Weight</span>
-                    <ArrowUpDown className="h-3 w-3" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-center text-slate-400 text-xs uppercase font-bold">Volatility Vibe</TableHead>
-                <TableHead className="text-right text-slate-400 text-xs uppercase font-bold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredHoldings.map((item) => (
-                <TableRow key={item.id} className="border-b border-slate-800/60 transition-colors hover:bg-slate-850/60">
-                  <TableCell className="py-3.5">
-                    <div className="flex flex-col">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-extrabold text-white text-sm tracking-tight font-mono">
-                          {item.ticker}
-                        </span>
-                        <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400 font-medium border border-slate-700/50">
-                          {item.sector}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-zinc-800/80 bg-zinc-950/40 hover:bg-transparent text-[11px] font-mono uppercase text-zinc-500">
+                  <TableHead className="w-[200px] text-zinc-500">
+                    <button
+                      onClick={() => toggleSort("ticker")}
+                      className="flex items-center space-x-1 hover:text-zinc-300"
+                    >
+                      <span>ASSET / SECTOR</span>
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right text-zinc-500">SHARES</TableHead>
+                  <TableHead className="text-right text-zinc-500">AVG COST</TableHead>
+                  <TableHead className="text-right text-zinc-500">
+                    <button
+                      onClick={() => toggleSort("invested")}
+                      className="flex items-center space-x-1 ml-auto hover:text-zinc-300"
+                    >
+                      <span>POSITION VALUE</span>
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-right text-zinc-500">
+                    <button
+                      onClick={() => toggleSort("weight_percentage")}
+                      className="flex items-center space-x-1 ml-auto hover:text-zinc-300"
+                    >
+                      <span>WEIGHT</span>
+                      <ArrowUpDown className="h-3 w-3" />
+                    </button>
+                  </TableHead>
+                  <TableHead className="text-center text-zinc-500">RISK</TableHead>
+                  <TableHead className="text-right text-zinc-500 w-[140px]">ACTIONS</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-zinc-800/50">
+                {filteredHoldings.map((item) => (
+                  <TableRow
+                    key={item.id}
+                    className="hover:bg-[#141418] transition-colors group h-12"
+                  >
+                    {/* Ticker & Name */}
+                    <TableCell className="py-2.5">
+                      <div className="flex flex-col">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono font-bold text-sm text-zinc-100">
+                            {item.ticker}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                            {item.sector}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-zinc-400 truncate max-w-[150px]">
+                          {item.company_name}
                         </span>
                       </div>
-                      <span className="text-xs text-slate-400 truncate max-w-[160px] mt-0.5">
-                        {item.company_name}
+                    </TableCell>
+
+                    {/* Shares */}
+                    <TableCell className="text-right font-mono tabular-nums text-zinc-300 text-xs">
+                      {item.shares.toLocaleString()}
+                    </TableCell>
+
+                    {/* Avg Cost */}
+                    <TableCell className="text-right font-mono tabular-nums text-zinc-400 text-xs">
+                      {formatCurrency(item.average_buy_price)}
+                    </TableCell>
+
+                    {/* Invested & Current Value */}
+                    <TableCell className="text-right font-mono tabular-nums text-xs">
+                      <span className="text-zinc-100 font-semibold block">
+                        {formatCurrency(item.current_value)}
                       </span>
-                    </div>
-                  </TableCell>
+                      <span
+                        className={`text-[10px] ${
+                          item.gainLoss >= 0 ? "text-emerald-400" : "text-rose-400"
+                        }`}
+                      >
+                        {item.gainLoss >= 0 ? "+" : ""}
+                        {item.gainLossPercent.toFixed(1)}%
+                      </span>
+                    </TableCell>
 
-                  <TableCell className="text-right font-medium text-slate-200 tabular-nums">
-                    {item.shares.toLocaleString()}
-                  </TableCell>
+                    {/* Weight: Clean tabular numbers */}
+                    <TableCell className="text-right font-mono tabular-nums text-zinc-200 text-xs">
+                      {item.weight_percentage > 0 ? `${item.weight_percentage}%` : "—"}
+                    </TableCell>
 
-                  <TableCell className="text-right text-slate-300 tabular-nums font-mono">
-                    {formatCurrency(item.average_buy_price)}
-                  </TableCell>
+                    {/* Volatility Indicator: Dot indicator */}
+                    <TableCell className="text-center font-mono">
+                      {renderVolatilityIndicator(item.risk_vibe)}
+                    </TableCell>
 
-                  <TableCell className="text-right tabular-nums">
-                    <span className="font-bold text-white font-mono block">
-                      {formatCurrency(item.invested)}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {formatCurrency(item.current_value)} val
-                    </span>
-                  </TableCell>
-
-                  <TableCell className="text-center">
-                    <span className="inline-block rounded-lg bg-slate-800/80 px-2.5 py-1 text-xs font-bold text-amber-400 font-mono border border-slate-700/50">
-                      {item.weight_percentage > 0 ? `${item.weight_percentage}%` : '—'}
-                    </span>
-                  </TableCell>
-
-                  <TableCell className="text-center">
-                    {getVibeBadge(item.risk_vibe)}
-                  </TableCell>
-
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={deletingId === item.id}
-                      onClick={() => handleDelete(item.id, item.ticker)}
-                      className="h-8 w-8 text-slate-500 hover:bg-rose-950/60 hover:text-rose-400 transition"
-                      title="Remove Holding"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    {/* Actions: Direct low-profile Buy / Sell on hover + Delete */}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end space-x-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() =>
+                            setTradeTarget({
+                              ticker: item.ticker,
+                              price: item.current_price,
+                              side: "BUY",
+                            })
+                          }
+                          className="h-6 px-2 text-[10px] font-mono font-semibold rounded bg-zinc-800 text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20 transition-colors"
+                          title={`Buy ${item.ticker}`}
+                        >
+                          BUY
+                        </button>
+                        <button
+                          onClick={() =>
+                            setTradeTarget({
+                              ticker: item.ticker,
+                              price: item.current_price,
+                              side: "SELL",
+                            })
+                          }
+                          className="h-6 px-2 text-[10px] font-mono font-semibold rounded bg-zinc-800 text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors"
+                          title={`Sell ${item.ticker}`}
+                        >
+                          SELL
+                        </button>
+                        <button
+                          disabled={deletingId === item.id}
+                          onClick={() => handleDelete(item.id, item.ticker)}
+                          className="h-6 w-6 rounded flex items-center justify-center text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
+                          title="Delete holding"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Trade Modal */}
+      {tradeTarget && (
+        <TradeModal
+          isOpen={!!tradeTarget}
+          onClose={() => setTradeTarget(null)}
+          ticker={tradeTarget.ticker}
+          currentPrice={tradeTarget.price}
+          userId={userId}
+          initialSide={tradeTarget.side}
+          onTradeSuccess={() => {
+            if (onTradeSuccess) onTradeSuccess();
+            setTradeTarget(null);
+          }}
+        />
+      )}
+    </>
   );
 }
-

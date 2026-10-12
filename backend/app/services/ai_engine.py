@@ -30,8 +30,9 @@ class AIEngineService:
     """
 
     def __init__(self):
-        self.api_key = settings.GROQ_API_KEY
-        self.model = settings.GROQ_MODEL
+        self.api_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else None
+        raw_model = (settings.GROQ_MODEL or "llama-3.3-70b-versatile").strip().replace("\r", "").replace("\n", "").replace('"', '').replace("'", "")
+        self.model = raw_model if raw_model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] else "llama-3.3-70b-versatile"
         self.temperature = 0.2
         self._async_client = None
 

@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'SimpleInvest — Enterprise Wealth Management & Risk Analytics',
-  description: 'Institutional-grade portfolio analytics, risk diagnostics, and AI wealth intelligence explained in plain English.',
+  title: 'SimpleInvest — Financial Intelligence Terminal',
+  description: 'High-density institutional financial analytics, live portfolio risk diagnostics, and momentum screening.',
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${plusJakarta.variable} ${jetbrainsMono.variable} h-full dark`}>
-      <body className="h-full bg-slate-950 text-slate-100 font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-300">
+      <body className="h-full bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-zinc-800 selection:text-zinc-100">
         {children}
       </body>
     </html>

@@ -1,27 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Compass,
-  Sparkles,
-  Zap,
-  TrendingUp,
-  ShieldAlert,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowUpRight,
-  RefreshCw,
-  Sliders,
-  Award,
-  Layers,
-  Flame,
-  ChevronRight,
-  Info,
-} from "lucide-react";
-import { Navbar } from "@/src/components/dashboard/Navbar";
+import { RefreshCw } from "lucide-react";
+import { TerminalHeader } from "@/src/components/terminal/TerminalHeader";
 import { Portfolio } from "@/src/types/portfolio";
-import { Button } from "@/src/components/ui/button";
+import { TradeModal } from "@/src/components/trading/TradeModal";
+import { StockForecastModal } from "@/src/components/market/StockForecastModal";
 
 interface GrowthOpportunity {
   ticker: string;
@@ -48,44 +32,44 @@ const INITIAL_FALLBACK_RECOMMENDATIONS: GrowthOpportunity[] = [
     company_name: "NVIDIA Corporation",
     recommendation_action: "BUY",
     growth_catalyst: "Uncontested global monopoly in AI accelerators and datacenter GPU architecture, powered by enterprise LLM deployments.",
-    potential_upside_range: "15% - 25% over 12 months",
+    potential_upside_range: "+15% - +25% (12M)",
     risk_level: "Moderate",
     confidence_score: 92,
-    key_metric_highlight: "Revenue grew 122% YoY with zero balance sheet stress and 75%+ gross margins",
-    cautionary_flag: "High valuation multiple leaves little room for earnings misses or chip supply chain delays",
+    key_metric_highlight: "Revenue grew 122% YoY with zero balance sheet leverage and 75%+ gross margins",
+    cautionary_flag: "Elevated forward valuation leaves minimal tolerance for delivery delays or supply disruptions",
   },
   {
     ticker: "MSFT",
     company_name: "Microsoft Corporation",
     recommendation_action: "BUY",
-    growth_catalyst: "Azure Cloud scaling rapidly with integrated OpenAI Copilot features enterprise-wide across Office and Developer suites.",
-    potential_upside_range: "15% - 22% over 12 months",
+    growth_catalyst: "Azure Cloud scaling rapidly with integrated enterprise AI capabilities across Office and developer infrastructure.",
+    potential_upside_range: "+15% - +22% (12M)",
     risk_level: "Low",
     confidence_score: 94,
-    key_metric_highlight: "Cloud revenue up 29% YoY with over $50B in annualized AI-related cloud commitments",
-    cautionary_flag: "Substantial capital expenditure spending on data center infrastructure may temporarily press cash flow",
+    key_metric_highlight: "Commercial cloud revenue up 29% YoY with expanding multi-year contract backlog",
+    cautionary_flag: "Substantial capital expenditure on compute facilities may moderate near-term free cash flow yield",
   },
   {
     ticker: "RELIANCE.NS",
     company_name: "Reliance Industries Ltd.",
     recommendation_action: "BUY",
-    growth_catalyst: "5G monetization via Jio Telecom paired with rapid expansion of Retail store footprints and green hydrogen investments.",
-    potential_upside_range: "18% - 25% over 12 months",
+    growth_catalyst: "5G monetization via Jio Telecom paired with aggressive retail footprint expansion and clean energy supply chains.",
+    potential_upside_range: "+18% - +25% (12M)",
     risk_level: "Moderate",
     confidence_score: 86,
-    key_metric_highlight: "Jio subscriber ARPU increasing steadily with over 450M mobile subscribers across India",
-    cautionary_flag: "Heavy ongoing capital expenditure in new energy gigafactories may delay immediate dividend hikes",
+    key_metric_highlight: "Jio subscriber ARPU increasing steadily with over 450M connected mobile accounts",
+    cautionary_flag: "Sustained capex in new energy gigafactories may delay immediate dividend expansion",
   },
   {
     ticker: "HDFCBANK.NS",
     company_name: "HDFC Bank Limited",
     recommendation_action: "BUY",
-    growth_catalyst: "Post-merger deposit accretion and branch network expansion expanding net interest margins in fast-growing urban hubs.",
-    potential_upside_range: "14% - 20% over 12 months",
+    growth_catalyst: "Post-merger deposit accretion and branch network scaling expanding net interest margins across urban economic hubs.",
+    potential_upside_range: "+14% - +20% (12M)",
     risk_level: "Low",
     confidence_score: 89,
-    key_metric_highlight: "Best-in-class asset quality with Gross NPA under 1.3% and solid credit growth",
-    cautionary_flag: "Digestive phase following parent merger requires steady deposit gathering over upcoming quarters",
+    key_metric_highlight: "Best-in-class asset quality with Gross NPA under 1.3% and solid private sector credit demand",
+    cautionary_flag: "Digestive phase following mortgage merger requires disciplined retail deposit gathering",
   },
 ];
 
@@ -103,7 +87,9 @@ export function AiScreenerClient({
 
   const [recommendations, setRecommendations] = useState<GrowthOpportunity[]>(INITIAL_FALLBACK_RECOMMENDATIONS);
   const [isLoading, setIsLoading] = useState(false);
-  const [lastScouted, setLastScouted] = useState<string>("");
+
+  const [tradeTarget, setTradeTarget] = useState<{ ticker: string; price: number } | null>(null);
+  const [forecastTarget, setForecastTarget] = useState<string | null>(null);
 
   const runGrowthScout = async () => {
     setIsLoading(true);
@@ -124,10 +110,9 @@ export function AiScreenerClient({
         }
       }
     } catch (e) {
-      console.warn("Could not connect to backend AI growth scout, using curated local scout engine.", e);
+      console.warn("Using local screener engine.", e);
     } finally {
       setIsLoading(false);
-      setLastScouted(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     }
   };
 
@@ -136,9 +121,8 @@ export function AiScreenerClient({
   }, [riskPreference, sectorFilter]);
 
   return (
-    <div className="min-h-screen bg-transparent text-slate-100 flex flex-col font-sans selection:bg-amber-500/30">
-      {/* Navbar Header */}
-      <Navbar
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
+      <TerminalHeader
         userEmail={userEmail}
         userName={userName}
         portfolios={portfolios}
@@ -146,275 +130,213 @@ export function AiScreenerClient({
         onSelectPortfolio={(p) => setActivePortfolio(p)}
       />
 
-      {/* Main Page Body */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
-        {/* Header Title Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-white/[0.08] pb-6"
-        >
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+        {/* Header Bar */}
+        <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center space-x-3 mb-2">
-              <span className="flex h-3 w-3 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-400 border border-amber-500/30 tracking-wide uppercase">
-                Groq (Llama 3.1 8B Instant) Active
-              </span>
-              <span className="hidden sm:inline text-xs text-slate-400 font-mono">
-                Last Audit: {lastScouted || "Just Now"}
-              </span>
-            </div>
-
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-              AI Trading <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-600">Radar</span>
+            <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
+              Quantitative Growth Screener
             </h1>
-            <p className="mt-1 text-sm text-slate-400 max-w-2xl">
-              Automated quantitative screening monitoring the top 100 global watchlist. Generates real-time Buy and Sell recommendations by analyzing P/E, PEG velocity, and revenue momentum.
+            <p className="text-xs text-zinc-500 font-mono mt-0.5">
+              FACTOR MODELING • FORWARD PEG & REVENUE VELOCITY RADAR
             </p>
           </div>
+        </div>
 
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="flex items-center space-x-3">
-            <Button
-              onClick={runGrowthScout}
-              disabled={isLoading}
-              variant="gradient"
-              size="sm"
-              className="bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-500 text-black font-bold shadow-lg shadow-amber-950/40 relative overflow-hidden group"
-            >
-              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-              <Sparkles className={`h-4 w-4 mr-2 relative z-10 ${isLoading ? "animate-spin" : ""}`} />
-              <span className="relative z-10">{isLoading ? "Analyzing Metrics..." : "Run AI Scout"}</span>
-            </Button>
-          </motion.div>
-        </motion.div>
-
-        {/* Interactive Filter Control Panel */}
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-          className="obsidian-glass-card p-6 space-y-6"
-        >
-          <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-            <div className="flex items-center space-x-2">
-              <Sliders className="h-4 w-4 text-amber-400" />
-              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
-                Radar Parameters & Risk Filter
-              </span>
-            </div>
-            <span className="text-xs text-amber-400 font-mono font-semibold">
-              4 Candidate Models Selected
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Sector Selector */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Target Sector Focus
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { id: "all", label: "All Sectors" },
-                  { id: "tech", label: "Technology" },
-                  { id: "finance", label: "Financials" },
-                  { id: "energy", label: "Energy & Auto" },
-                ].map((s) => (
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    key={s.id}
-                    onClick={() => setSectorFilter(s.id as any)}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold transition border text-center ${
-                      sectorFilter === s.id
-                        ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-md shadow-amber-950/50"
-                        : "bg-white/[0.03] text-slate-400 border-white/[0.08] hover:bg-white/[0.06] hover:text-white"
-                    }`}
-                  >
-                    {s.label}
-                  </motion.button>
-                ))}
-              </div>
-            </div>
-
-            {/* Risk Preference Switcher */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Risk & Growth Preference
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setRiskPreference("balanced")}
-                  className={`py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border ${
-                    riskPreference === "balanced"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-md shadow-amber-950/50"
-                      : "bg-white/[0.03] text-slate-400 border-white/[0.08] hover:bg-white/[0.06] hover:text-white"
+        {/* Filter Bar: Compact Single-Row Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 border border-zinc-800/80 bg-[#0f0f12] rounded-md font-mono text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Target Sector Pills */}
+            <div className="flex items-center space-x-1">
+              <span className="text-zinc-500 uppercase text-[10px] mr-1">SECTOR:</span>
+              {[
+                { id: "all", label: "All" },
+                { id: "tech", label: "Tech" },
+                { id: "finance", label: "Financials" },
+                { id: "energy", label: "Energy" },
+              ].map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setSectorFilter(s.id as any)}
+                  className={`h-7 px-2.5 rounded transition-colors ${
+                    sectorFilter === s.id
+                      ? "bg-zinc-800 text-zinc-100 font-semibold border border-zinc-700"
+                      : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  <ShieldAlert className="h-4 w-4" />
-                  <span>Balanced Growth</span>
-                </motion.button>
+                  {s.label}
+                </button>
+              ))}
+            </div>
 
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setRiskPreference("aggressive")}
-                  className={`py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border ${
-                    riskPreference === "aggressive"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-md shadow-amber-950/50"
-                      : "bg-white/[0.03] text-slate-400 border-white/[0.08] hover:bg-white/[0.06] hover:text-white"
+            <div className="hidden sm:block h-4 w-[1px] bg-zinc-800" />
+
+            {/* Risk Profile Segmented Control */}
+            <div className="flex items-center space-x-1">
+              <span className="text-zinc-500 uppercase text-[10px] mr-1">RISK:</span>
+              {[
+                { id: "balanced", label: "Balanced" },
+                { id: "aggressive", label: "Aggressive" },
+              ].map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setRiskPreference(r.id as any)}
+                  className={`h-7 px-2.5 rounded transition-colors ${
+                    riskPreference === r.id
+                      ? "bg-zinc-800 text-zinc-100 font-semibold border border-zinc-700"
+                      : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  <Flame className="h-4 w-4" />
-                  <span>Aggressive Expansion</span>
-                </motion.button>
-              </div>
+                  {r.label}
+                </button>
+              ))}
             </div>
-
-          </div>
-        </motion.div>
-
-        {/* Opportunity Cards Grid */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-              <Award className="h-5 w-5 text-amber-400" />
-              <span>AI Buy & Sell Recommendations ({recommendations.length})</span>
-            </h2>
-            <span className="text-xs text-slate-400 font-mono">
-              Strict Pydantic JSON Output Verified
-            </span>
           </div>
 
-          {isLoading ? (
-            <div className="py-20 text-center space-y-4 obsidian-glass-card">
-              <RefreshCw className="h-10 w-10 animate-spin text-amber-400 mx-auto" />
-              <div>
-                <p className="text-sm font-bold text-white">Scouting Global Markets with Groq AI...</p>
-                <p className="text-xs text-slate-400 mt-1">Analyzing P/E multiples, revenue velocity, and debt leverage</p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {recommendations.map((opp, idx) => {
-                const isAggressive = opp.risk_level.toLowerCase() === "high";
-                const isModerate = opp.risk_level.toLowerCase() === "moderate";
-                const isBuy = opp.recommendation_action?.toUpperCase() === "BUY";
-                const isSell = opp.recommendation_action?.toUpperCase() === "SELL";
+          {/* Primary Action Button: Run Screener */}
+          <button
+            onClick={runGrowthScout}
+            disabled={isLoading}
+            className="h-8 px-3 text-xs font-medium rounded bg-zinc-100 text-zinc-950 hover:bg-white transition-colors flex items-center justify-center space-x-1.5 shrink-0"
+          >
+            <RefreshCw className={`h-3 w-3 ${isLoading ? "animate-spin" : ""}`} />
+            <span>{isLoading ? "Screening..." : "Run Screener"}</span>
+          </button>
+        </div>
 
-                return (
-                  <motion.div
-                    key={opp.ticker + idx}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: idx * 0.1, type: "spring", stiffness: 100 }}
-                    whileHover={{ scale: 1.015, translateY: -5 }}
-                    className="obsidian-glass-card p-6 flex flex-col justify-between space-y-5 group cursor-pointer"
-                  >
-                    {/* Card Top Banner */}
+        {/* Screener Cards: 2 Columns */}
+        {isLoading ? (
+          <div className="border border-zinc-800/80 bg-[#0f0f12] rounded-md p-12 text-center font-mono text-xs text-zinc-500 space-y-2">
+            <RefreshCw className="h-5 w-5 animate-spin mx-auto text-zinc-400" />
+            <p>Evaluating valuation metrics and revenue velocity...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {recommendations.map((opp, idx) => {
+              const isBuy = opp.recommendation_action?.toUpperCase() === "BUY";
+              return (
+                <div
+                  key={`${opp.ticker}-${idx}`}
+                  className="border border-zinc-800/80 bg-[#0f0f12] rounded-md p-5 flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Card Header: Ticker, Company Name, and right-aligned semantic badge + Conviction */}
                     <div className="flex items-start justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] border border-white/[0.1] font-extrabold text-white text-base font-mono group-hover:border-amber-500/50 transition shadow-inner">
-                          {opp.ticker.substring(0, 2)}
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xl font-extrabold text-white group-hover:text-amber-400 transition">
-                              {opp.ticker}
-                            </span>
-                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border uppercase tracking-wider ${
-                              isBuy ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" : 
-                              isSell ? "bg-rose-500/10 text-rose-400 border-rose-500/30" :
-                              "bg-slate-500/10 text-slate-400 border-slate-500/30"
-                            }`}>
-                              {opp.recommendation_action}
-                            </span>
-                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border uppercase tracking-wider hidden sm:inline-block ${
-                              isAggressive
-                                ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                                : isModerate
-                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                                : "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                            }`}>
-                              {opp.risk_level} Risk
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-400 font-medium">{opp.company_name}</p>
-                        </div>
-                      </div>
-
-                      {/* Confidence Score Gauge */}
-                      <div className="text-right">
-                        <div className="inline-flex items-center space-x-1 bg-amber-950/80 px-2.5 py-1 rounded-full border border-amber-500/30">
-                          <Zap className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                          <span className="text-xs font-extrabold text-amber-300 font-mono">
-                            {opp.confidence_score}%
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-base font-mono font-bold text-zinc-100">
+                            {opp.ticker}
+                          </span>
+                          <span className="text-[10px] font-mono uppercase text-zinc-500 border border-zinc-800 px-1.5 py-0.5 rounded">
+                            {opp.risk_level}
                           </span>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">AI Conviction</p>
+                        <p className="text-xs text-zinc-400 mt-0.5 font-sans">
+                          {opp.company_name}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <span
+                          className={`font-mono text-xs font-semibold px-2 py-0.5 rounded ${
+                            isBuy
+                              ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                              : "text-rose-400 bg-rose-500/10 border border-rose-500/20"
+                          }`}
+                        >
+                          {opp.recommendation_action}
+                        </span>
+                        <span className="font-mono text-xs text-zinc-300">
+                          Conviction: {opp.confidence_score}%
+                        </span>
                       </div>
                     </div>
 
-                    {/* Potential Upside Range Pill */}
-                    <div className="rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent p-3.5 border border-amber-500/30 flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <TrendingUp className="h-4 w-4 text-amber-400" />
-                        <span className="text-xs font-bold text-slate-300">12-Month Target Upside</span>
-                      </div>
-                      <span className="text-sm font-extrabold text-amber-400 font-mono">
+                    {/* Key Target Strip: -mx-5 px-5 py-2.5 my-4 bg-zinc-900/80 border-y border-zinc-800/80 */}
+                    <div className="bg-zinc-900/80 border-y border-zinc-800/80 -mx-5 px-5 py-2.5 my-4 flex justify-between items-center font-mono text-xs">
+                      <span className="text-zinc-500 uppercase text-[11px] tracking-wider">
+                        12M Target Upside
+                      </span>
+                      <span className="font-semibold text-zinc-100 tabular-nums">
                         {opp.potential_upside_range}
                       </span>
                     </div>
 
-                    {/* Growth Catalyst Description */}
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3" />
-                        {isBuy ? "Growth Catalyst & Tailwinds" : "Reasons to Sell / Headwinds"}
-                      </span>
-                      <p className="text-xs text-slate-200 leading-relaxed font-normal">
-                        {opp.growth_catalyst}
-                      </p>
+                    {/* Structured Thesis Rows: 3 Clean Sections */}
+                    <div className="space-y-3 text-xs">
+                      {/* CATALYST */}
+                      <div>
+                        <div className="font-mono text-[10px] uppercase text-zinc-500 mb-1">
+                          CATALYST
+                        </div>
+                        <p className="text-zinc-300 font-sans leading-relaxed">
+                          {opp.growth_catalyst}
+                        </p>
+                      </div>
+
+                      <div className="border-t border-zinc-800/50 pt-2.5">
+                        <div className="font-mono text-[10px] uppercase text-zinc-500 mb-1">
+                          FUNDAMENTAL METRIC
+                        </div>
+                        <p className="font-mono text-xs text-zinc-200">
+                          {opp.key_metric_highlight}
+                        </p>
+                      </div>
+
+                      <div className="border-t border-zinc-800/50 pt-2.5">
+                        <div className="font-mono text-[10px] uppercase text-zinc-500 mb-1">
+                          RISK FACTOR
+                        </div>
+                        <p className="text-zinc-400 font-sans leading-relaxed">
+                          {opp.cautionary_flag}
+                        </p>
+                      </div>
                     </div>
+                  </div>
 
-                    {/* Key Metric Highlight */}
-                    <div className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-3 space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />
-                        Key Financial Metric Highlight
-                      </span>
-                      <p className="text-xs text-slate-300 font-medium">
-                        {opp.key_metric_highlight}
-                      </p>
-                    </div>
-
-                    {/* Cautionary Flag */}
-                    <div className="rounded-xl bg-rose-950/20 border border-rose-500/20 p-3 space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" />
-                        Cautionary Flag / Downside Risk
-                      </span>
-                      <p className="text-xs text-slate-300 font-medium">
-                        {opp.cautionary_flag}
-                      </p>
-                    </div>
-
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
+                  {/* Card Footer: Direct Action Buttons */}
+                  <div className="flex items-center justify-end space-x-2 pt-4 mt-4 border-t border-zinc-800/80 font-mono text-xs">
+                    <button
+                      onClick={() => setForecastTarget(opp.ticker)}
+                      className="h-7 px-3 rounded border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors"
+                    >
+                      View Trajectory
+                    </button>
+                    <button
+                      onClick={() => setTradeTarget({ ticker: opp.ticker, price: 150 })}
+                      className="h-7 px-3 rounded bg-zinc-100 text-zinc-950 hover:bg-white font-medium transition-colors"
+                    >
+                      Execute Trade
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
+
+      {/* Trajectory Modal */}
+      {forecastTarget && (
+        <StockForecastModal
+          ticker={forecastTarget}
+          onClose={() => setForecastTarget(null)}
+          onTrade={(tick, pr) => {
+            setForecastTarget(null);
+            setTradeTarget({ ticker: tick, price: pr });
+          }}
+        />
+      )}
+
+      {/* Trade Modal */}
+      {tradeTarget && (
+        <TradeModal
+          isOpen={!!tradeTarget}
+          onClose={() => setTradeTarget(null)}
+          ticker={tradeTarget.ticker}
+          currentPrice={tradeTarget.price}
+        />
+      )}
     </div>
   );
 }

@@ -5,154 +5,99 @@
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
     
-    --card: 224 71% 6%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 10% 5%;
+    --card-foreground: 0 0% 98%;
     
-    --popover: 224 71% 6%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 10% 4.5%;
+    --popover-foreground: 0 0% 98%;
     
-    --primary: 158 64% 42%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
     
-    --secondary: 217.2 32.6% 14%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
     
-    --muted: 217.2 32.6% 14%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
     
-    --accent: 217.2 32.6% 14%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
     
-    --destructive: 0 62.8% 40%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
     
-    --border: 217.2 32.6% 14%;
-    --input: 217.2 32.6% 14%;
-    --ring: 158 64% 42%;
-    --radius: 0.85rem;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --radius: 0.375rem;
   }
 }
 
 body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-  background-color: #000000;
-  color: #f1f5f9;
+  background-color: #09090b;
+  color: #fafafa;
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(212, 175, 55, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(184, 134, 11, 0.08) 0%, transparent 40%);
-  background-attachment: fixed;
+  background-image: none;
 }
 
-/* Tabular Numbers for Currencies & Percentages */
+/* Monospace Tabular Numbers */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono), monospace;
 }
 
-/* Premium Glass Card Tokens */
-.obsidian-glass-card {
-  position: relative;
-  background: rgba(15, 15, 15, 0.4);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255,255,255,0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+/* Institutional Terminal Panels */
+.terminal-panel {
+  background-color: #0f0f12;
+  border: 1px solid rgba(39, 39, 42, 0.8);
+  border-radius: 0.375rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.obsidian-glass-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.4) 50%, transparent 100%);
+.terminal-panel:hover {
+  background-color: #141418;
 }
 
-.obsidian-glass-card:hover {
-  background: rgba(20, 20, 20, 0.6);
-  border-color: rgba(212, 175, 55, 0.3);
-  box-shadow: 0 12px 40px -10px rgba(212, 175, 55, 0.2), inset 0 1px 1px rgba(255,255,255,0.08);
-  transform: translateY(-2px);
-}
-
+/* Backward compatibility aliases mapping to clean matte panels */
+.obsidian-glass-card,
 .obsidian-gold-card {
-  position: relative;
-  background: rgba(20, 18, 14, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(212, 175, 55, 0.15);
-  border-radius: 1rem;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9), inset 0 1px 1px rgba(212, 175, 55, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  background-color: #0f0f12;
+  border: 1px solid rgba(39, 39, 42, 0.8);
+  border-radius: 0.375rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.obsidian-gold-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 215, 0, 0.8) 50%, transparent 100%);
-}
-
+.obsidian-glass-card:hover,
 .obsidian-gold-card:hover {
-  background: rgba(30, 25, 18, 0.8);
-  border-color: rgba(255, 215, 0, 0.5);
-  box-shadow: 0 12px 40px -10px rgba(212, 175, 55, 0.4), inset 0 1px 1px rgba(255, 215, 0, 0.2);
-  transform: translateY(-2px);
+  background-color: #141418;
+  border-color: rgba(63, 63, 70, 0.8);
 }
 
-/* Custom Scrollbars */
+/* Minimal Terminal Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(7, 9, 14, 0.8);
+  background: #09090b;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.6);
-  border-radius: 9999px;
+  background: #27272a;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.5);
+  background: #3f3f46;
 }
 
-/* Pulse animation for live market data */
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
-}
-
-.live-pulse {
-  animation: pulse-ring 2s infinite;
-}
-
-/* Marquee Animation for Navbar */
+/* Marquee Animation for Ticker Ribbon */
 @keyframes marquee {
   0% {
     transform: translateX(0%);
@@ -163,7 +108,7 @@ body {
 }
 
 .animate-marquee {
-  animation: marquee 35s linear infinite;
+  animation: marquee 40s linear infinite;
   will-change: transform;
 }
 
@@ -171,8 +116,7 @@ body {
   animation-play-state: paused;
 }
 
-/* Mask Gradient for Marquee Edges */
 .mask-gradient {
-  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
-  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
 }

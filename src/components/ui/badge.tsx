@@ -3,21 +3,26 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/src/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2",
+  "inline-flex items-center rounded px-2 py-0.5 text-[11px] font-mono font-medium transition-colors border",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-slate-900 text-slate-50 dark:bg-slate-800 dark:text-slate-100",
+          "border-zinc-800 bg-zinc-900 text-zinc-200",
         secondary:
-          "border-transparent bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100",
+          "border-zinc-800 bg-zinc-900/60 text-zinc-400",
         destructive:
-          "border-transparent bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-        outline: "text-slate-950 dark:text-slate-50 border-slate-200 dark:border-slate-800",
-        success: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800/50",
-        warning: "border-amber-200 bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800/50",
-        info: "border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800/50",
-        purple: "border-purple-200 bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800/50",
+          "border-rose-500/20 bg-rose-500/10 text-rose-400",
+        outline:
+          "border-zinc-800 text-zinc-300",
+        success:
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+        warning:
+          "border-amber-500/20 bg-amber-500/10 text-amber-400",
+        info:
+          "border-blue-500/20 bg-blue-500/10 text-blue-400",
+        purple:
+          "border-zinc-800 bg-zinc-900 text-zinc-300",
       },
     },
     defaultVariants: {

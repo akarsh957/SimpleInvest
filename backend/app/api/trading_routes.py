@@ -37,12 +37,31 @@ async def execute_trade(request: TradeExecutionRequest) -> TradeExecutionRespons
         raise HTTPException(status_code=500, detail="Database connection not configured")
         
     try:
-        # 1. Get real-time price from Twelve Data
-        quote_data = await TwelveDataService.get_realtime_quote(request.ticker)
-        if not quote_data or 'price' not in quote_data:
-            raise HTTPException(status_code=400, detail="Could not fetch realtime quote for ticker")
-        
-        current_price = float(quote_data['price'])
+        # 1. Get real-time price from Twelve Data, with yfinance fallback
+        current_price = None
+        try:
+            quote_data = await TwelveDataService.get_realtime_quote(request.ticker)
+            if quote_data and 'price' in quote_data:
+                current_price = float(quote_data['price'])
+        except Exception as q_err:
+            logger.warning(f"TwelveData quote failed for {request.ticker}: {q_err}. Falling back to yfinance.")
+            
+        if current_price is None:
+            try:
+                import yfinance as yf
+                t = yf.Ticker(request.ticker)
+                fast_info = getattr(t, 'fast_info', None)
+                if fast_info and getattr(fast_info, 'last_price', None):
+                    current_price = float(fast_info.last_price)
+                else:
+                    hist = t.history(period="1d")
+                    if not hist.empty:
+                        current_price = float(hist['Close'].iloc[-1])
+            except Exception as yf_err:
+                logger.error(f"yfinance fallback failed for {request.ticker}: {yf_err}")
+
+        if current_price is None or current_price <= 0:
+            raise HTTPException(status_code=400, detail=f"Could not fetch realtime quote for {request.ticker}")
         
         # 2. Check user balance / holdings
         # Usually handled by RLS and database constraints, but we can do a preemptive check if we want.
