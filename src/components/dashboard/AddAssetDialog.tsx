@@ -14,64 +14,38 @@ interface AddAssetDialogProps {
   ) => Promise<{ success: boolean; error?: string }>;
 }
 
-const PRESET_TICKERS = [
-  "NVDA",
-  "AAPL",
-  "MSFT",
-  "TSLA",
-  "RELIANCE.NS",
-  "TCS.NS",
-  "HDFCBANK.NS",
-  "SPY",
-];
+const PRESET_TICKERS = ["NVDA", "AAPL", "MSFT", "TSLA", "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "SPY"];
 
-export function AddAssetDialog({
-  open,
-  onOpenChange,
-  onAddHolding,
-}: AddAssetDialogProps) {
-  const [ticker, setTicker] = useState("");
-  const [shares, setShares] = useState("");
-  const [buyPrice, setBuyPrice] = useState("");
+export function AddAssetDialog({ open, onOpenChange, onAddHolding }: AddAssetDialogProps) {
+  const [ticker, setTicker]       = useState("");
+  const [shares, setShares]       = useState("");
+  const [buyPrice, setBuyPrice]   = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const parsedShares = parseFloat(shares) || 0;
-  const parsedPrice = parseFloat(buyPrice) || 0;
-  const totalCost = parsedShares * parsedPrice;
+  const parsedPrice  = parseFloat(buyPrice) || 0;
+  const totalCost    = parsedShares * parsedPrice;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanTicker = ticker.trim().toUpperCase();
-
-    if (!cleanTicker) {
-      setErrorMessage("Enter a valid asset symbol.");
-      return;
-    }
-    if (parsedShares <= 0) {
-      setErrorMessage("Quantity must be greater than zero.");
-      return;
-    }
-    if (parsedPrice < 0) {
-      setErrorMessage("Execution price cannot be negative.");
-      return;
-    }
+    if (!cleanTicker) { setErrorMessage("Enter a valid asset symbol."); return; }
+    if (parsedShares <= 0) { setErrorMessage("Quantity must be greater than zero."); return; }
+    if (parsedPrice < 0)   { setErrorMessage("Buy price cannot be negative."); return; }
 
     setIsSubmitting(true);
     setErrorMessage("");
-
     try {
       const res = await onAddHolding(cleanTicker, parsedShares, parsedPrice);
       if (res.success) {
-        setTicker("");
-        setShares("");
-        setBuyPrice("");
+        setTicker(""); setShares(""); setBuyPrice("");
         onOpenChange(false);
       } else {
-        setErrorMessage(res.error || "Failed to commit position.");
+        setErrorMessage(res.error || "Failed to add position.");
       }
     } catch (err: any) {
-      setErrorMessage(err.message || "Position commit error.");
+      setErrorMessage(err.message || "Position add error.");
     } finally {
       setIsSubmitting(false);
     }
@@ -80,60 +54,52 @@ export function AddAssetDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-md border border-zinc-800 bg-[#0f0f12] p-5 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-xl border border-[#262A34] bg-[#1A1D24] p-6 shadow-2xl space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+        <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-zinc-100">Add Position</h3>
-            <p className="text-xs text-zinc-500 font-mono mt-0.5">
-              COMMIT HOLDING TO ACTIVE BOOK
-            </p>
+            <h3 className="text-sm font-semibold text-white">Add Position</h3>
+            <p className="text-[11px] text-[#5A6070] mt-0.5">Add a holding to your portfolio</p>
           </div>
           <button
             onClick={() => onOpenChange(false)}
-            className="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-900"
+            className="h-8 w-8 rounded-lg border border-[#262A34] text-[#5A6070] hover:text-[#A0A8B8] flex items-center justify-center hover:bg-[#20242D] transition-colors"
           >
-            <X size={16} />
+            <X size={15} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Ticker Input */}
           <div>
-            <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">
+            <label className="block text-[11px] font-medium uppercase tracking-wider text-[#5A6070] mb-1.5">
               Ticker Symbol
             </label>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5A6070]" />
               <input
                 type="text"
                 value={ticker}
                 onChange={(e) => setTicker(e.target.value.toUpperCase())}
                 placeholder="e.g. NVDA, AAPL, RELIANCE.NS"
-                className="w-full h-8 rounded bg-zinc-900 border border-zinc-800 pl-8 pr-3 text-xs font-mono text-zinc-100 uppercase focus:border-zinc-600 focus:outline-none placeholder:text-zinc-600"
+                className="w-full h-9 rounded-lg bg-[#14171D] border border-[#262A34] pl-9 pr-3 text-xs font-mono text-white uppercase focus:border-[#383E4C] focus:outline-none placeholder:text-[#373D4A]"
                 required
                 autoFocus
               />
             </div>
 
-            {/* Presets */}
-            <div className="mt-2 flex flex-wrap gap-1 items-center">
-              <span className="text-[10px] font-mono uppercase text-zinc-500 mr-1">
-                QUICK:
-              </span>
+            {/* Quick-select chips */}
+            <div className="mt-2 flex flex-wrap gap-1">
               {PRESET_TICKERS.map((sym) => (
                 <button
                   key={sym}
                   type="button"
-                  onClick={() => {
-                    setTicker(sym);
-                    setErrorMessage("");
-                  }}
-                  className={`h-5 px-1.5 rounded text-[10px] font-mono border transition-colors ${
+                  onClick={() => { setTicker(sym); setErrorMessage(""); }}
+                  className={`h-6 px-2 rounded-md text-[10px] font-mono border transition-all ${
                     ticker === sym
-                      ? "border-zinc-600 bg-zinc-800 text-zinc-100 font-semibold"
-                      : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                      ? "border-[#00D09C]/30 bg-[#00D09C]/10 text-[#00D09C]"
+                      : "border-[#262A34] bg-[#14171D] text-[#5A6070] hover:text-[#A0A8B8] hover:border-[#383E4C]"
                   }`}
                 >
                   {sym}
@@ -142,11 +108,11 @@ export function AddAssetDialog({
             </div>
           </div>
 
-          {/* Shares & Buy Price Inputs */}
-          <div className="grid grid-cols-2 gap-3 font-mono">
+          {/* Shares & Price */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1.5">
-                Quantity
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-[#5A6070] mb-1.5">
+                Quantity (Shares)
               </label>
               <input
                 type="number"
@@ -155,14 +121,13 @@ export function AddAssetDialog({
                 value={shares}
                 onChange={(e) => setShares(e.target.value)}
                 placeholder="0"
-                className="w-full h-8 rounded bg-zinc-900 border border-zinc-800 px-3 text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none placeholder:text-zinc-600 tabular-nums"
+                className="w-full h-9 rounded-lg bg-[#14171D] border border-[#262A34] px-3 text-xs font-mono text-white focus:border-[#383E4C] focus:outline-none placeholder:text-[#373D4A] tabular-nums"
                 required
               />
             </div>
-
             <div>
-              <label className="block text-[11px] uppercase tracking-wider text-zinc-500 mb-1.5">
-                Avg Price
+              <label className="block text-[11px] font-medium uppercase tracking-wider text-[#5A6070] mb-1.5">
+                Avg Buy Price
               </label>
               <input
                 type="number"
@@ -171,43 +136,45 @@ export function AddAssetDialog({
                 value={buyPrice}
                 onChange={(e) => setBuyPrice(e.target.value)}
                 placeholder="0.00"
-                className="w-full h-8 rounded bg-zinc-900 border border-zinc-800 px-3 text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none placeholder:text-zinc-600 tabular-nums"
+                className="w-full h-9 rounded-lg bg-[#14171D] border border-[#262A34] px-3 text-xs font-mono text-white focus:border-[#383E4C] focus:outline-none placeholder:text-[#373D4A] tabular-nums"
                 required
               />
             </div>
           </div>
 
-          {/* Total Preview */}
+          {/* Total Cost Preview */}
           {totalCost > 0 && (
-            <div className="rounded border border-zinc-800/80 bg-zinc-950/60 p-2.5 flex justify-between items-center font-mono text-xs">
-              <span className="text-zinc-500">Committed Capital:</span>
-              <span className="font-semibold text-zinc-100 tabular-nums">
+            <div className="rounded-lg border border-[#262A34] bg-[#14171D] px-4 py-3 flex justify-between items-center">
+              <span className="text-xs text-[#5A6070]">Invested Amount:</span>
+              <span className="text-sm font-bold text-white tabular-nums font-mono">
                 {formatCurrency(totalCost)}
               </span>
             </div>
           )}
 
+          {/* Error */}
           {errorMessage && (
-            <div className="p-2 bg-rose-500/10 border border-rose-500/20 rounded text-rose-400 font-mono text-xs">
+            <div className="p-3 bg-[#EB5B3C]/10 border border-[#EB5B3C]/25 rounded-lg text-[#EB5B3C] text-xs">
               {errorMessage}
             </div>
           )}
 
-          <div className="flex justify-end space-x-2 pt-2 border-t border-zinc-800/80">
+          {/* Footer Actions */}
+          <div className="flex justify-end space-x-2 pt-1 border-t border-[#262A34]">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
-              className="h-8 px-3 rounded text-xs font-mono text-zinc-400 hover:text-zinc-200 border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 transition-colors"
+              className="h-9 px-4 rounded-lg text-xs text-[#A0A8B8] border border-[#262A34] bg-[#14171D] hover:bg-[#20242D] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-8 px-3 rounded text-xs font-medium bg-zinc-100 text-zinc-950 hover:bg-white transition-colors"
+              className="h-9 px-4 rounded-lg text-xs font-semibold bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] transition-colors disabled:opacity-60"
             >
-              {isSubmitting ? "Committing..." : "Commit Position"}
+              {isSubmitting ? "Adding..." : "Add to Portfolio"}
             </button>
           </div>
         </form>

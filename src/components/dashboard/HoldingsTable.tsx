@@ -10,7 +10,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/src/components/ui/table";
-import { Button } from "@/src/components/ui/button";
 import { Skeleton } from "@/src/components/ui/skeleton";
 import { Holding, HoldingAuditDetail } from "@/src/types/portfolio";
 import { formatCurrency } from "@/src/lib/utils";
@@ -40,15 +39,12 @@ export function HoldingsTable({
   const [selectedSector, setSelectedSector] = useState("ALL");
   const [sortField, setSortField] = useState<"ticker" | "invested" | "weight_percentage">("invested");
   const [sortAsc, setSortAsc] = useState(false);
-
-  // Trade modal state
   const [tradeTarget, setTradeTarget] = useState<{
     ticker: string;
     price: number;
     side: "BUY" | "SELL";
   } | null>(null);
 
-  // Merge holdings with FastAPI audit detailed metrics
   const mergedHoldings = useMemo(() => {
     return holdings.map((h) => {
       const detail = auditDetails.find(
@@ -69,19 +65,17 @@ export function HoldingsTable({
         gainLoss,
         gainLossPercent,
         weight_percentage: detail?.weight_percentage || 0,
-        risk_vibe: detail?.risk_vibe || "Moderate Bumps",
+        risk_vibe: detail?.risk_vibe || "Moderate",
         invested,
       };
     });
   }, [holdings, auditDetails]);
 
-  // Extract unique sectors
   const sectors = useMemo(() => {
     const list = Array.from(new Set(mergedHoldings.map((h) => h.sector)));
     return ["ALL", ...list];
   }, [mergedHoldings]);
 
-  // Filter & Sort Holdings
   const filteredHoldings = useMemo(() => {
     return mergedHoldings
       .filter((h) => {
@@ -104,54 +98,35 @@ export function HoldingsTable({
   }, [mergedHoldings, searchQuery, selectedSector, sortField, sortAsc]);
 
   const toggleSort = (field: "ticker" | "invested" | "weight_percentage") => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(false);
-    }
+    if (sortField === field) setSortAsc(!sortAsc);
+    else { setSortField(field); setSortAsc(false); }
   };
 
   const handleDelete = async (id: string, ticker: string) => {
-    if (confirm(`Remove position ${ticker}?`)) {
+    if (confirm(`Remove ${ticker} from portfolio?`)) {
       setDeletingId(id);
-      try {
-        await onDeleteHolding(id);
-      } finally {
-        setDeletingId(null);
-      }
+      try { await onDeleteHolding(id); }
+      finally { setDeletingId(null); }
     }
   };
 
-  const renderVolatilityIndicator = (vibe: string) => {
+  const renderRiskBadge = (vibe: string) => {
     const v = vibe.toLowerCase();
     if (v.includes("smooth") || v.includes("low")) {
-      return (
-        <span className="font-mono text-xs text-zinc-300 inline-flex items-center gap-1.5">
-          <span className="text-emerald-400 text-[10px]">●</span> Low
-        </span>
-      );
+      return <span className="inline-flex items-center space-x-1 text-[11px]"><span className="h-1.5 w-1.5 rounded-full bg-[#00D09C]" /><span className="text-[#A0A8B8]">Low</span></span>;
     }
-    if (v.includes("moderate") || v.includes("steady") || v.includes("balanced")) {
-      return (
-        <span className="font-mono text-xs text-zinc-300 inline-flex items-center gap-1.5">
-          <span className="text-zinc-400 text-[10px]">●</span> Moderate
-        </span>
-      );
+    if (v.includes("moderate") || v.includes("balanced")) {
+      return <span className="inline-flex items-center space-x-1 text-[11px]"><span className="h-1.5 w-1.5 rounded-full bg-[#5367FF]" /><span className="text-[#A0A8B8]">Moderate</span></span>;
     }
-    return (
-      <span className="font-mono text-xs text-zinc-300 inline-flex items-center gap-1.5">
-        <span className="text-rose-400 text-[10px]">●</span> High
-      </span>
-    );
+    return <span className="inline-flex items-center space-x-1 text-[11px]"><span className="h-1.5 w-1.5 rounded-full bg-[#EB5B3C]" /><span className="text-[#A0A8B8]">High</span></span>;
   };
 
   if (isLoading) {
     return (
-      <div className="border border-zinc-800/80 bg-[#0f0f12] rounded-md p-5 space-y-3">
-        <Skeleton className="h-6 w-40 bg-zinc-800" />
+      <div className="bg-[#1A1D24] border border-[#262A34] rounded-xl p-5 space-y-3">
+        <Skeleton className="h-6 w-40 bg-[#262A34]" />
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-10 w-full bg-zinc-900 rounded" />
+          <Skeleton key={i} className="h-12 w-full bg-[#20242D] rounded-lg" />
         ))}
       </div>
     );
@@ -159,50 +134,65 @@ export function HoldingsTable({
 
   return (
     <>
-      <div className="border border-zinc-800/80 bg-[#0f0f12] rounded-md overflow-hidden">
-        {/* Table Header Bar */}
-        <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/80">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-              POSITIONS
+      <div className="bg-[#1A1D24] border border-[#262A34] rounded-xl overflow-hidden">
+        {/* Table Toolbar */}
+        <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#262A34]">
+          <div className="flex items-center space-x-3">
+            <span className="text-sm font-semibold text-white">Holdings</span>
+            <span className="text-[10px] font-mono text-[#5A6070] uppercase tracking-wide">
+              {holdings.length} positions
             </span>
-            <span className="text-zinc-600 font-mono text-xs">•</span>
-            <span className="font-mono text-xs text-zinc-500 tabular-nums">
-              {holdings.length} ASSETS
-            </span>
+
+            {/* Category pills */}
+            <div className="hidden sm:flex items-center gap-1">
+              {["ALL", "US Equities", "Indian Equities"].map((cat) => {
+                const active = cat === "ALL" ? selectedSector === "ALL" : false;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedSector(cat === "ALL" ? "ALL" : selectedSector)}
+                    className={`h-6 px-2.5 rounded-md text-[11px] font-medium transition-colors ${
+                      cat === selectedSector || (cat === "ALL" && selectedSector === "ALL")
+                        ? "bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20"
+                        : "text-[#5A6070] hover:text-[#A0A8B8] hover:bg-[#20242D]"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* Search Input */}
+            {/* Search */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#5A6070]" />
               <input
                 type="text"
-                placeholder="Filter positions..."
+                placeholder="Filter holdings..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-7 w-44 rounded bg-zinc-900 border border-zinc-800 pl-8 pr-2 text-xs font-mono text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700"
+                className="h-8 w-40 rounded-lg bg-[#14171D] border border-[#262A34] pl-8 pr-3 text-xs text-[#A0A8B8] placeholder:text-[#5A6070] focus:outline-none focus:border-[#383E4C]"
               />
             </div>
 
-            {/* Sector filter */}
+            {/* Sector filter (mobile fallback) */}
             {sectors.length > 2 && (
               <select
                 value={selectedSector}
                 onChange={(e) => setSelectedSector(e.target.value)}
-                className="h-7 rounded bg-zinc-900 border border-zinc-800 px-2 text-xs font-mono text-zinc-300 focus:outline-none focus:border-zinc-700 cursor-pointer"
+                className="h-8 rounded-lg bg-[#14171D] border border-[#262A34] px-2 text-xs text-[#A0A8B8] focus:outline-none focus:border-[#383E4C] cursor-pointer"
               >
                 {sectors.map((sec) => (
-                  <option key={sec} value={sec} className="bg-zinc-950 text-zinc-200">
-                    {sec}
-                  </option>
+                  <option key={sec} value={sec} className="bg-[#1A1D24]">{sec}</option>
                 ))}
               </select>
             )}
 
             <button
               onClick={onOpenAddModal}
-              className="h-7 px-2.5 rounded bg-zinc-100 text-zinc-950 hover:bg-white text-xs font-medium flex items-center space-x-1 transition-colors"
+              className="h-8 px-3 rounded-lg bg-[#00D09C] text-[#0B0E11] text-xs font-semibold flex items-center space-x-1 hover:bg-[#00B88A] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Add</span>
@@ -210,155 +200,135 @@ export function HoldingsTable({
           </div>
         </div>
 
-        {/* Table Content */}
+        {/* Table */}
         {holdings.length === 0 ? (
-          <div className="py-12 text-center text-zinc-500 font-mono text-xs">
-            NO OPEN POSITIONS IN ACTIVE BOOK
+          <div className="py-16 text-center text-[#5A6070] text-xs font-mono">
+            No holdings yet. Add your first position to get started.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-zinc-800/80 bg-zinc-950/40 hover:bg-transparent text-[11px] font-mono uppercase text-zinc-500">
-                  <TableHead className="w-[200px] text-zinc-500">
-                    <button
-                      onClick={() => toggleSort("ticker")}
-                      className="flex items-center space-x-1 hover:text-zinc-300"
-                    >
-                      <span>ASSET / SECTOR</span>
+                <TableRow className="border-b border-[#262A34] bg-[#14171D]/50 hover:bg-transparent">
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] py-3 pl-5">
+                    <button onClick={() => toggleSort("ticker")} className="flex items-center space-x-1 hover:text-[#A0A8B8]">
+                      <span>Company</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="text-right text-zinc-500">SHARES</TableHead>
-                  <TableHead className="text-right text-zinc-500">AVG COST</TableHead>
-                  <TableHead className="text-right text-zinc-500">
-                    <button
-                      onClick={() => toggleSort("invested")}
-                      className="flex items-center space-x-1 ml-auto hover:text-zinc-300"
-                    >
-                      <span>POSITION VALUE</span>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] text-right">Shares & Avg</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] text-right">Market Price</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] text-right">
+                    <button onClick={() => toggleSort("invested")} className="flex items-center space-x-1 ml-auto hover:text-[#A0A8B8]">
+                      <span>Current Value & P&L</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="text-right text-zinc-500">
-                    <button
-                      onClick={() => toggleSort("weight_percentage")}
-                      className="flex items-center space-x-1 ml-auto hover:text-zinc-300"
-                    >
-                      <span>WEIGHT</span>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] text-right">
+                    <button onClick={() => toggleSort("weight_percentage")} className="flex items-center space-x-1 ml-auto hover:text-[#A0A8B8]">
+                      <span>Allocation</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </button>
                   </TableHead>
-                  <TableHead className="text-center text-zinc-500">RISK</TableHead>
-                  <TableHead className="text-right text-zinc-500 w-[140px]">ACTIONS</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] text-center">Risk</TableHead>
+                  <TableHead className="text-[11px] font-medium uppercase tracking-wider text-[#5A6070] text-right pr-5">Trade</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-zinc-800/50">
-                {filteredHoldings.map((item) => (
-                  <TableRow
-                    key={item.id}
-                    className="hover:bg-[#141418] transition-colors group h-12"
-                  >
-                    {/* Ticker & Name */}
-                    <TableCell className="py-2.5">
-                      <div className="flex flex-col">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono font-bold text-sm text-zinc-100">
-                            {item.ticker}
-                          </span>
-                          <span className="text-[10px] font-mono text-zinc-500 uppercase">
-                            {item.sector}
-                          </span>
+              <TableBody className="divide-y divide-[#262A34]/60">
+                {filteredHoldings.map((item) => {
+                  const isPos = item.gainLoss >= 0;
+                  const initial = item.ticker.charAt(0).toUpperCase();
+                  return (
+                    <TableRow
+                      key={item.id}
+                      className="hover:bg-[#20242D] transition-colors group h-14"
+                    >
+                      {/* Company */}
+                      <TableCell className="py-3 pl-5">
+                        <div className="flex items-center space-x-3">
+                          <div className="h-8 w-8 rounded-full bg-[#5367FF]/10 border border-[#5367FF]/20 text-[#5367FF] text-xs font-bold flex items-center justify-center shrink-0">
+                            {initial}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-sm text-white">{item.company_name}</span>
+                            <span className="text-[10px] text-[#5A6070] font-mono">{item.ticker} · {item.sector}</span>
+                          </div>
                         </div>
-                        <span className="text-[11px] text-zinc-400 truncate max-w-[150px]">
-                          {item.company_name}
-                        </span>
-                      </div>
-                    </TableCell>
+                      </TableCell>
 
-                    {/* Shares */}
-                    <TableCell className="text-right font-mono tabular-nums text-zinc-300 text-xs">
-                      {item.shares.toLocaleString()}
-                    </TableCell>
+                      {/* Shares & Avg */}
+                      <TableCell className="text-right font-mono text-xs">
+                        <div className="text-[#A0A8B8] tabular-nums">{item.shares.toLocaleString()} sh</div>
+                        <div className="text-[#5A6070] text-[10px] tabular-nums">@ {formatCurrency(item.average_buy_price)}</div>
+                      </TableCell>
 
-                    {/* Avg Cost */}
-                    <TableCell className="text-right font-mono tabular-nums text-zinc-400 text-xs">
-                      {formatCurrency(item.average_buy_price)}
-                    </TableCell>
+                      {/* LTP */}
+                      <TableCell className="text-right font-mono tabular-nums text-white text-sm font-semibold">
+                        {formatCurrency(item.current_price)}
+                      </TableCell>
 
-                    {/* Invested & Current Value */}
-                    <TableCell className="text-right font-mono tabular-nums text-xs">
-                      <span className="text-zinc-100 font-semibold block">
-                        {formatCurrency(item.current_value)}
-                      </span>
-                      <span
-                        className={`text-[10px] ${
-                          item.gainLoss >= 0 ? "text-emerald-400" : "text-rose-400"
-                        }`}
-                      >
-                        {item.gainLoss >= 0 ? "+" : ""}
-                        {item.gainLossPercent.toFixed(1)}%
-                      </span>
-                    </TableCell>
+                      {/* Current Value & P&L */}
+                      <TableCell className="text-right font-mono text-xs">
+                        <div className="text-white font-semibold tabular-nums">{formatCurrency(item.current_value)}</div>
+                        <div className={`text-[10px] tabular-nums ${isPos ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
+                          {isPos ? "+" : ""}{item.gainLossPercent.toFixed(1)}%
+                          <span className="ml-1 text-[#5A6070]">({formatCurrency(Math.abs(item.gainLoss))})</span>
+                        </div>
+                      </TableCell>
 
-                    {/* Weight: Clean tabular numbers */}
-                    <TableCell className="text-right font-mono tabular-nums text-zinc-200 text-xs">
-                      {item.weight_percentage > 0 ? `${item.weight_percentage}%` : "—"}
-                    </TableCell>
+                      {/* Allocation */}
+                      <TableCell className="text-right font-mono text-xs">
+                        <div className="text-[#A0A8B8] tabular-nums mb-1">
+                          {item.weight_percentage > 0 ? `${item.weight_percentage}%` : "—"}
+                        </div>
+                        {item.weight_percentage > 0 && (
+                          <div className="w-16 h-1 bg-[#262A34] rounded-full ml-auto overflow-hidden">
+                            <div
+                              className="h-full bg-[#5367FF] rounded-full transition-all"
+                              style={{ width: `${Math.min(item.weight_percentage, 100)}%` }}
+                            />
+                          </div>
+                        )}
+                      </TableCell>
 
-                    {/* Volatility Indicator: Dot indicator */}
-                    <TableCell className="text-center font-mono">
-                      {renderVolatilityIndicator(item.risk_vibe)}
-                    </TableCell>
+                      {/* Risk */}
+                      <TableCell className="text-center font-mono">
+                        {renderRiskBadge(item.risk_vibe)}
+                      </TableCell>
 
-                    {/* Actions: Direct low-profile Buy / Sell on hover + Delete */}
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end space-x-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() =>
-                            setTradeTarget({
-                              ticker: item.ticker,
-                              price: item.current_price,
-                              side: "BUY",
-                            })
-                          }
-                          className="h-6 px-2 text-[10px] font-mono font-semibold rounded bg-zinc-800 text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20 transition-colors"
-                          title={`Buy ${item.ticker}`}
-                        >
-                          BUY
-                        </button>
-                        <button
-                          onClick={() =>
-                            setTradeTarget({
-                              ticker: item.ticker,
-                              price: item.current_price,
-                              side: "SELL",
-                            })
-                          }
-                          className="h-6 px-2 text-[10px] font-mono font-semibold rounded bg-zinc-800 text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 transition-colors"
-                          title={`Sell ${item.ticker}`}
-                        >
-                          SELL
-                        </button>
-                        <button
-                          disabled={deletingId === item.id}
-                          onClick={() => handleDelete(item.id, item.ticker)}
-                          className="h-6 w-6 rounded flex items-center justify-center text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 transition-colors"
-                          title="Delete holding"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      {/* Actions */}
+                      <TableCell className="text-right pr-5">
+                        <div className="flex items-center justify-end space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setTradeTarget({ ticker: item.ticker, price: item.current_price, side: "BUY" })}
+                            className="h-7 px-2.5 text-[11px] font-semibold rounded-lg bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20 hover:bg-[#00D09C]/20 transition-colors"
+                          >
+                            Buy
+                          </button>
+                          <button
+                            onClick={() => setTradeTarget({ ticker: item.ticker, price: item.current_price, side: "SELL" })}
+                            className="h-7 px-2.5 text-[11px] font-semibold rounded-lg bg-[#EB5B3C]/10 text-[#EB5B3C] border border-[#EB5B3C]/20 hover:bg-[#EB5B3C]/20 transition-colors"
+                          >
+                            Sell
+                          </button>
+                          <button
+                            disabled={deletingId === item.id}
+                            onClick={() => handleDelete(item.id, item.ticker)}
+                            className="h-7 w-7 rounded-lg flex items-center justify-center text-[#373D4A] hover:text-[#EB5B3C] hover:bg-[#EB5B3C]/10 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
         )}
       </div>
 
-      {/* Trade Modal */}
       {tradeTarget && (
         <TradeModal
           isOpen={!!tradeTarget}

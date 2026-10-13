@@ -9,9 +9,7 @@ import {
   FolderPlus,
   ChevronDown,
   Check,
-  LayoutDashboard,
-  Activity,
-  Compass,
+  Search,
 } from "lucide-react";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
@@ -30,19 +28,19 @@ export interface TerminalHeaderProps {
 }
 
 const LIVE_INDICES = [
-  { symbol: "S&P 500", val: "5,842.20", change: "+0.64%", pos: true },
-  { symbol: "NASDAQ", val: "18,485.10", change: "+1.12%", pos: true },
-  { symbol: "NIFTY 50", val: "25,127.90", change: "+0.42%", pos: true },
-  { symbol: "BTC/USD", val: "$64,250", change: "+2.45%", pos: true },
-  { symbol: "NVDA", val: "$132.50", change: "+3.31%", pos: true },
-  { symbol: "TSLA", val: "$254.30", change: "+5.00%", pos: true },
-  { symbol: "RELIANCE.NS", val: "₹2,940.00", change: "+1.22%", pos: true },
-  { symbol: "TCS.NS", val: "₹3,920.00", change: "-0.47%", pos: false },
+  { symbol: "NIFTY 50",  val: "25,127.90", change: "+0.42%", pos: true  },
+  { symbol: "SENSEX",    val: "82,948.65", change: "+0.38%", pos: true  },
+  { symbol: "S&P 500",   val: "5,842.20",  change: "+0.64%", pos: true  },
+  { symbol: "NASDAQ",    val: "18,485.10", change: "+1.12%", pos: true  },
+  { symbol: "NVDA",      val: "$132.50",   change: "+3.31%", pos: true  },
+  { symbol: "TSLA",      val: "$254.30",   change: "+5.00%", pos: true  },
+  { symbol: "RELIANCE",  val: "₹2,940",   change: "+1.22%", pos: true  },
+  { symbol: "TCS",       val: "₹3,920",   change: "-0.47%", pos: false },
 ];
 
 export function TerminalHeader({
-  userEmail = "trader@simpleinvest.ai",
-  userName = "Institutional Member",
+  userEmail = "investor@simpleinvest.in",
+  userName = "Investor",
   portfolios = [],
   activePortfolio,
   onSelectPortfolio,
@@ -78,28 +76,31 @@ export function TerminalHeader({
   };
 
   const navItems = [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Markets", href: "/market", icon: Activity },
-    { label: "Screener", href: "/ai-screener", icon: Compass },
+    { label: "Investments", href: "/dashboard" },
+    { label: "Explore",     href: "/market"    },
+    { label: "AI Screener", href: "/ai-screener" },
   ];
 
+  const initials = (userName?.charAt(0) || userEmail?.charAt(0) || "U").toUpperCase();
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950">
-      {/* 1. Top Ticker Bar: h-8 border-b border-zinc-800/80 bg-zinc-950 px-4 */}
-      <div className="h-8 border-b border-zinc-800/80 bg-zinc-950 px-4 flex items-center justify-between text-[11px] font-mono select-none">
+    <header className="sticky top-0 z-40 w-full">
+      {/* ── Index Strip ─────────────────────────────────── */}
+      <div className="h-9 bg-[#0E1014] border-b border-[#262A34] px-6 flex items-center justify-between text-[11px] select-none">
+        {/* Live dot + label */}
         <div className="flex items-center space-x-2 shrink-0">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold">FEED</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-[#00D09C] live-dot" />
+          <span className="text-[10px] uppercase tracking-widest text-[#5A6070] font-semibold font-mono">LIVE</span>
         </div>
 
-        {/* Ticker tape */}
-        <div className="flex-1 overflow-hidden mx-4 mask-gradient">
-          <div className="animate-marquee flex items-center space-x-6 whitespace-nowrap">
+        {/* Ticker marquee */}
+        <div className="flex-1 overflow-hidden mx-6 mask-gradient">
+          <div className="animate-marquee flex items-center space-x-8 whitespace-nowrap font-mono">
             {[...LIVE_INDICES, ...LIVE_INDICES].map((item, idx) => (
               <div key={`${item.symbol}-${idx}`} className="inline-flex items-center space-x-1.5 tabular-nums">
-                <span className="text-zinc-400 font-medium">{item.symbol}</span>
-                <span className="text-zinc-200">{item.val}</span>
-                <span className={item.pos ? "text-emerald-400 font-medium" : "text-rose-400 font-medium"}>
+                <span className="text-[#5A6070] font-medium text-[10px]">{item.symbol}</span>
+                <span className="text-[#A0A8B8] text-[11px]">{item.val}</span>
+                <span className={`font-medium text-[10px] ${item.pos ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
                   {item.change}
                 </span>
               </div>
@@ -107,60 +108,52 @@ export function TerminalHeader({
           </div>
         </div>
 
-        {/* Right side: Compact USD / INR Currency Toggle */}
-        <div className="flex items-center space-x-1 shrink-0">
-          <div className="flex items-center rounded border border-zinc-800 bg-zinc-900 p-0.5">
-            <button
-              onClick={() => setSelectedCurrency("USD")}
-              className={`px-1.5 py-0.5 text-[10px] font-mono rounded transition-colors ${
-                selectedCurrency === "USD"
-                  ? "bg-zinc-800 text-zinc-100 font-semibold"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              USD
-            </button>
-            <button
-              onClick={() => setSelectedCurrency("INR")}
-              className={`px-1.5 py-0.5 text-[10px] font-mono rounded transition-colors ${
-                selectedCurrency === "INR"
-                  ? "bg-zinc-800 text-zinc-100 font-semibold"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              INR
-            </button>
+        {/* Currency switcher */}
+        <div className="flex items-center shrink-0">
+          <div className="flex items-center rounded-md border border-[#262A34] bg-[#14171D] p-0.5">
+            {(["USD", "INR"] as const).map((cur) => (
+              <button
+                key={cur}
+                onClick={() => setSelectedCurrency(cur)}
+                className={`px-2 py-0.5 text-[10px] font-mono rounded transition-all ${
+                  selectedCurrency === cur
+                    ? "bg-[#1A1D24] text-white font-semibold shadow-sm"
+                    : "text-[#5A6070] hover:text-[#A0A8B8]"
+                }`}
+              >
+                {cur}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* 2. Main Navigation Bar: h-13 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-md px-6 */}
-      <div className="h-13 bg-zinc-950/90 backdrop-blur-md px-6 flex items-center justify-between">
-        {/* Left: Minimalist monochrome logo + SimpleInvest */}
-        <div className="flex items-center space-x-6">
-          <Link href="/dashboard" className="flex items-center space-x-2.5 group">
-            <div className="flex h-7 w-7 items-center justify-center rounded border border-zinc-800 bg-zinc-900 text-zinc-100 group-hover:border-zinc-700 transition-colors">
-              <TrendingUp className="h-3.5 w-3.5 stroke-[2]" />
+      {/* ── Main Header ─────────────────────────────────── */}
+      <div className="h-16 bg-[#121418]/90 backdrop-blur-md border-b border-[#262A34] px-6 flex items-center justify-between">
+        {/* Left: Logo + Nav */}
+        <div className="flex items-center space-x-8">
+          {/* Brand Mark */}
+          <Link href="/dashboard" className="flex items-center space-x-2.5 group shrink-0">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#00D09C] to-[#5367FF] flex items-center justify-center shadow-lg shadow-[#00D09C]/10">
+              <TrendingUp className="h-4 w-4 text-[#0B0E11] stroke-[2.5]" />
             </div>
-            <span className="font-semibold tracking-tight text-zinc-100 text-base">
+            <span className="text-lg font-bold tracking-tight text-white">
               SimpleInvest
             </span>
           </Link>
 
-          <div className="h-4 w-[1px] bg-zinc-800" />
-
-          {/* Nav Links: Single-line horizontal links */}
+          {/* Navigation */}
           <nav className="flex items-center space-x-1">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`text-sm font-medium px-3 py-1.5 rounded transition-colors whitespace-nowrap ${
+                  className={`relative text-sm px-3 py-1.5 rounded-md transition-all whitespace-nowrap font-medium ${
                     isActive
-                      ? "bg-zinc-800/80 text-zinc-100 font-semibold"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60"
+                      ? "text-[#00D09C] nav-active-indicator"
+                      : "text-[#A0A8B8] hover:text-white hover:bg-[#1A1D24]"
                   }`}
                 >
                   {item.label}
@@ -170,59 +163,62 @@ export function TerminalHeader({
           </nav>
         </div>
 
-        {/* Right: Compact portfolio selector dropdown and user avatar button */}
+        {/* Right: Search + Portfolio + User */}
         <div className="flex items-center space-x-3">
+          {/* Global Search */}
+          <div className="relative hidden md:flex items-center">
+            <Search className="absolute left-3 h-3.5 w-3.5 text-[#5A6070]" />
+            <input
+              type="text"
+              placeholder="Search stocks, ETFs..."
+              className="w-56 h-9 bg-[#1A1D24] border border-[#262A34] rounded-lg pl-9 pr-10 text-xs text-[#A0A8B8] placeholder:text-[#5A6070] focus:outline-none focus:border-[#383E4C] transition-colors"
+            />
+            <span className="absolute right-3 text-[10px] font-mono text-[#373D4A] select-none">⌘K</span>
+          </div>
+
           {/* Portfolio Selector */}
           <div className="relative">
             <button
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="h-8 text-xs border border-zinc-800 bg-zinc-900 text-zinc-200 rounded px-2.5 flex items-center space-x-2 hover:bg-zinc-800/80 transition-colors"
+              className="h-9 text-xs border border-[#262A34] bg-[#1A1D24] text-[#A0A8B8] rounded-lg px-3 flex items-center space-x-2 hover:bg-[#20242D] hover:border-[#383E4C] transition-all"
             >
-              <span className="font-mono text-zinc-500 uppercase text-[10px]">BOOK:</span>
-              <span className="max-w-[130px] truncate font-medium">
+              <span className="text-[#5A6070] text-[10px] font-mono uppercase tracking-wide">Portfolio:</span>
+              <span className="max-w-[120px] truncate font-medium text-white">
                 {activePortfolio ? activePortfolio.name : "Select"}
               </span>
-              <ChevronDown className={`h-3 w-3 text-zinc-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              <ChevronDown className={`h-3 w-3 text-[#5A6070] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
             {dropdownOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-                <div className="absolute right-0 mt-1.5 z-50 w-56 rounded-md border border-zinc-800 bg-[#0f0f12] py-1 shadow-xl">
-                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                    Portfolios
+                <div className="absolute right-0 mt-2 z-50 w-56 rounded-xl border border-[#262A34] bg-[#1A1D24] py-1.5 shadow-2xl shadow-black/40">
+                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[#5A6070]">
+                    Your Portfolios
                   </div>
-                  <div className="max-h-48 overflow-y-auto px-1 space-y-0.5">
+                  <div className="max-h-48 overflow-y-auto px-1.5 space-y-0.5">
                     {portfolios.map((p) => (
                       <button
                         key={p.id}
-                        onClick={() => {
-                          onSelectPortfolio(p);
-                          setDropdownOpen(false);
-                        }}
-                        className={`flex w-full items-center justify-between rounded px-2.5 py-1.5 text-xs transition ${
+                        onClick={() => { onSelectPortfolio(p); setDropdownOpen(false); }}
+                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs transition-colors ${
                           activePortfolio?.id === p.id
-                            ? "bg-zinc-800 text-zinc-100 font-medium"
-                            : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200"
+                            ? "bg-[#00D09C]/10 text-[#00D09C] font-medium"
+                            : "text-[#A0A8B8] hover:bg-[#20242D] hover:text-white"
                         }`}
                       >
                         <span className="truncate">{p.name}</span>
-                        {activePortfolio?.id === p.id && (
-                          <Check className="h-3.5 w-3.5 text-zinc-200" />
-                        )}
+                        {activePortfolio?.id === p.id && <Check className="h-3.5 w-3.5" />}
                       </button>
                     ))}
                   </div>
-                  <div className="my-1 border-t border-zinc-800" />
-                  <div className="px-1">
+                  <div className="my-1.5 border-t border-[#262A34]" />
+                  <div className="px-1.5">
                     <button
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        setCreateModalOpen(true);
-                      }}
-                      className="flex w-full items-center space-x-2 rounded px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800/60 transition"
+                      onClick={() => { setDropdownOpen(false); setCreateModalOpen(true); }}
+                      className="flex w-full items-center space-x-2 rounded-lg px-2.5 py-2 text-xs text-[#A0A8B8] hover:bg-[#20242D] hover:text-white transition-colors"
                     >
-                      <FolderPlus className="h-3.5 w-3.5 text-zinc-400" />
+                      <FolderPlus className="h-3.5 w-3.5 text-[#5367FF]" />
                       <span>New Portfolio</span>
                     </button>
                   </div>
@@ -233,17 +229,17 @@ export function TerminalHeader({
 
           {/* User Avatar */}
           <div
-            className="h-8 w-8 rounded border border-zinc-800 bg-zinc-900 text-zinc-200 font-mono text-xs flex items-center justify-center font-medium select-none"
+            className="h-9 w-9 rounded-full bg-gradient-to-br from-[#5367FF] to-[#00D09C] text-[#0B0E11] text-sm flex items-center justify-center font-bold select-none cursor-default shadow-md"
             title={userEmail}
           >
-            {userName.charAt(0).toUpperCase() || userEmail.charAt(0).toUpperCase()}
+            {initials}
           </div>
 
-          {/* Logout Form */}
+          {/* Logout */}
           <form action={async () => { await logout(); }}>
             <button
               type="submit"
-              className="h-8 w-8 rounded border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-rose-400 hover:border-zinc-700 flex items-center justify-center transition-colors"
+              className="h-9 w-9 rounded-lg border border-[#262A34] bg-[#1A1D24] text-[#5A6070] hover:text-[#EB5B3C] hover:border-[#383E4C] flex items-center justify-center transition-colors"
               title="Sign Out"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -252,46 +248,46 @@ export function TerminalHeader({
         </div>
       </div>
 
-      {/* Modal: Create New Portfolio */}
+      {/* ── Create Portfolio Modal ───────────────────────── */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-md border border-zinc-800 bg-[#0f0f12] p-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-xl border border-[#262A34] bg-[#1A1D24] p-6 shadow-2xl">
             <DialogHeader className="space-y-1 text-left">
-              <DialogTitle className="text-sm font-semibold text-zinc-100">
+              <DialogTitle className="text-sm font-semibold text-white">
                 Create Portfolio
               </DialogTitle>
-              <DialogDescription className="text-xs text-zinc-500">
-                Enter an identifier for this asset account.
+              <DialogDescription className="text-xs text-[#5A6070]">
+                Give your new investment portfolio a name.
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleCreatePortfolio} className="mt-4 space-y-4">
+            <form onSubmit={handleCreatePortfolio} className="mt-5 space-y-4">
               <div>
-                <label className="block text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-1.5">
+                <label className="block text-[11px] font-medium uppercase tracking-wider text-[#5A6070] mb-1.5">
                   Portfolio Name
                 </label>
                 <Input
                   type="text"
-                  placeholder="e.g. Core Tech, Retirement"
+                  placeholder="e.g. Core Tech, Retirement, India Growth"
                   value={newPortfolioName}
                   onChange={(e) => setNewPortfolioName(e.target.value)}
-                  className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-100 placeholder:text-zinc-600 rounded"
+                  className="h-9 text-xs border-[#262A34] bg-[#14171D] text-white placeholder:text-[#373D4A] rounded-lg focus:border-[#00D09C]/50 focus:ring-0"
                   autoFocus
                   required
                 />
               </div>
 
               {errorMsg && (
-                <p className="text-xs font-mono text-rose-400">{errorMsg}</p>
+                <p className="text-xs text-[#EB5B3C]">{errorMsg}</p>
               )}
 
-              <DialogFooter className="flex justify-end space-x-2 pt-2">
+              <DialogFooter className="flex justify-end space-x-2 pt-1">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setCreateModalOpen(false)}
-                  className="h-8 px-3 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 rounded"
+                  className="h-9 px-4 text-xs border-[#262A34] bg-[#14171D] text-[#A0A8B8] hover:bg-[#20242D] rounded-lg"
                 >
                   Cancel
                 </Button>
@@ -299,9 +295,9 @@ export function TerminalHeader({
                   type="submit"
                   size="sm"
                   disabled={isSubmitting || !newPortfolioName.trim()}
-                  className="h-8 px-3 text-xs bg-zinc-100 text-zinc-950 hover:bg-white rounded font-medium"
+                  className="h-9 px-4 text-xs bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] rounded-lg font-semibold"
                 >
-                  {isSubmitting ? "Creating..." : "Create"}
+                  {isSubmitting ? "Creating..." : "Create Portfolio"}
                 </Button>
               </DialogFooter>
             </form>

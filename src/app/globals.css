@@ -5,110 +5,147 @@
     --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
 
-    --background: 240 10% 3.9%;
+    /* FinTech Palette Tokens */
+    --bg-canvas:    #121418;
+    --bg-surface:   #1A1D24;
+    --bg-surface-hover: #20242D;
+    --bg-well:      #14171D;
+    --border:       #262A34;
+    --border-hover: #383E4C;
+
+    --mint:         #00D09C;
+    --mint-muted:   rgba(0, 208, 156, 0.10);
+    --mint-dark:    #00B88A;
+    --coral:        #EB5B3C;
+    --coral-muted:  rgba(235, 91, 60, 0.10);
+    --indigo:       #5367FF;
+    --indigo-muted: rgba(83, 103, 255, 0.10);
+
+    --text-primary:   #FFFFFF;
+    --text-secondary: #A0A8B8;
+    --text-muted:     #5A6070;
+    --text-faint:     #373D4A;
+
+    /* ShadCN compatibility shims */
+    --background: 220 13% 10%;
     --foreground: 0 0% 98%;
-    
-    --card: 240 10% 5%;
+    --card: 222 15% 12%;
     --card-foreground: 0 0% 98%;
-    
-    --popover: 240 10% 4.5%;
+    --popover: 222 15% 11%;
     --popover-foreground: 0 0% 98%;
-    
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    
-    --secondary: 240 3.7% 15.9%;
+    --primary: 162 100% 41%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 222 15% 16%;
     --secondary-foreground: 0 0% 98%;
-    
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    
-    --accent: 240 3.7% 15.9%;
+    --muted: 222 15% 16%;
+    --muted-foreground: 215 14% 50%;
+    --accent: 222 15% 16%;
     --accent-foreground: 0 0% 98%;
-    
-    --destructive: 0 72% 51%;
+    --destructive: 15 80% 55%;
     --destructive-foreground: 0 0% 98%;
-    
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --radius: 0.375rem;
+    --border: 220 15% 18%;
+    --input: 220 15% 18%;
+    --ring: 162 100% 41%;
+    --radius: 0.5rem;
   }
+}
+
+/* ─── Base Reset ──────────────────────────────────────── */
+html, body {
+  height: 100%;
 }
 
 body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-  background-color: #09090b;
-  color: #fafafa;
+  background-color: #121418;
+  color: #E8ECF4;
   min-height: 100vh;
   overflow-x: hidden;
-  background-image: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Monospace Tabular Numbers */
+/* ─── Typography Utilities ────────────────────────────── */
 .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono-nums {
   font-variant-numeric: tabular-nums;
   font-family: var(--font-mono), monospace;
 }
 
-/* Institutional Terminal Panels */
-.terminal-panel {
-  background-color: #0f0f12;
-  border: 1px solid rgba(39, 39, 42, 0.8);
-  border-radius: 0.375rem;
+/* ─── Surface Cards ───────────────────────────────────── */
+.ft-card {
+  background-color: #1A1D24;
+  border: 1px solid #262A34;
+  border-radius: 0.75rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.terminal-panel:hover {
-  background-color: #141418;
+.ft-card:hover {
+  background-color: #20242D;
+  border-color: #383E4C;
 }
 
-/* Backward compatibility aliases mapping to clean matte panels */
+/* ─── Legacy Compatibility ────────────────────────────── */
+.terminal-panel,
 .obsidian-glass-card,
 .obsidian-gold-card {
-  background-color: #0f0f12;
-  border: 1px solid rgba(39, 39, 42, 0.8);
-  border-radius: 0.375rem;
+  background-color: #1A1D24;
+  border: 1px solid #262A34;
+  border-radius: 0.75rem;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
+.terminal-panel:hover,
 .obsidian-glass-card:hover,
 .obsidian-gold-card:hover {
-  background-color: #141418;
-  border-color: rgba(63, 63, 70, 0.8);
+  background-color: #20242D;
+  border-color: #383E4C;
 }
 
-/* Minimal Terminal Scrollbars */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
+/* ─── Accent Variants ─────────────────────────────────── */
+.text-mint   { color: #00D09C; }
+.text-coral  { color: #EB5B3C; }
+.text-indigo { color: #5367FF; }
 
-::-webkit-scrollbar-track {
-  background: #09090b;
-}
+.bg-mint-soft   { background-color: rgba(0, 208, 156, 0.10); }
+.bg-coral-soft  { background-color: rgba(235, 91, 60, 0.10); }
+.bg-indigo-soft { background-color: rgba(83, 103, 255, 0.10); }
 
-::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 2px;
+/* ─── CTA Buttons ─────────────────────────────────────── */
+.btn-mint {
+  background-color: #00D09C;
+  color: #0B0E11;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease;
 }
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+.btn-mint:hover  { background-color: #00B88A; }
+.btn-coral {
+  background-color: #EB5B3C;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease;
 }
+.btn-coral:hover { background-color: #D94E31; }
 
-/* Marquee Animation for Ticker Ribbon */
+/* ─── Scrollbars ──────────────────────────────────────── */
+::-webkit-scrollbar        { width: 4px; height: 4px; }
+::-webkit-scrollbar-track  { background: #121418; }
+::-webkit-scrollbar-thumb  { background: #262A34; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #383E4C; }
+
+/* ─── Ticker Marquee ──────────────────────────────────── */
 @keyframes marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
 }
 
 .animate-marquee {
-  animation: marquee 40s linear infinite;
+  animation: marquee 45s linear infinite;
   will-change: transform;
 }
 
@@ -117,6 +154,36 @@ body {
 }
 
 .mask-gradient {
-  -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
-  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+/* ─── Active Nav Indicator ────────────────────────────── */
+.nav-active-indicator {
+  position: relative;
+}
+.nav-active-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #00D09C;
+  border-radius: 1px 1px 0 0;
+}
+
+/* ─── Allocation Bar ──────────────────────────────────── */
+.allocation-segment {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+/* ─── Pulse dot ───────────────────────────────────────── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.live-dot {
+  animation: live-pulse 2s ease-in-out infinite;
 }

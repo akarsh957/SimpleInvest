@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ResponsiveContainer,
@@ -12,16 +12,8 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
-  ReferenceLine,
 } from "recharts";
-import {
-  X,
-  TrendingUp,
-  TrendingDown,
-  RefreshCw,
-  Maximize2,
-  Minimize2,
-} from "lucide-react";
+import { X, RefreshCw, Maximize2, Minimize2 } from "lucide-react";
 import { formatCurrency } from "@/src/lib/utils";
 
 export interface ChartPoint {
@@ -107,160 +99,138 @@ export function StockForecastModal({
         const res = await fetch("http://localhost:8000/api/market/stock-forecast", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ticker,
-            timeframe,
-            forecast_days: forecastDays,
-          }),
+          body: JSON.stringify({ ticker, timeframe, forecast_days: forecastDays }),
         });
-
-        if (!res.ok) {
-          throw new Error(`Failed to load forecast (${res.status})`);
-        }
-
+        if (!res.ok) throw new Error(`Failed to load forecast (${res.status})`);
         const json = await res.json();
         if (!isCancelled) setData(json);
       } catch (err: any) {
-        if (!isCancelled) {
-          setError(err.message || "Failed to load forecast model.");
-        }
+        if (!isCancelled) setError(err.message || "Failed to load forecast model.");
       } finally {
         if (!isCancelled) setLoading(false);
       }
     }
 
     fetchForecast();
-    return () => {
-      isCancelled = true;
-    };
+    return () => { isCancelled = true; };
   }, [ticker, timeframe, forecastDays]);
 
   if (!ticker) return null;
 
-  const currencySymbol = data?.currency === "INR" ? "₹" : "$";
-  const currentPrice = data?.current_price || 0;
-  const targetPrice = data?.ai_insights.target_price || currentPrice * 1.05;
-  const bullTarget = data?.ai_insights.bull_case_target || currentPrice * 1.15;
-  const bearTarget = data?.ai_insights.bear_case_target || currentPrice * 0.90;
-  const confidence = data?.ai_insights.confidence_score || 85;
+  const sym = data?.currency === "INR" ? "₹" : "$";
+  const currentPrice  = data?.current_price || 0;
+  const targetPrice   = data?.ai_insights.target_price   || currentPrice * 1.05;
+  const bullTarget    = data?.ai_insights.bull_case_target || currentPrice * 1.15;
+  const bearTarget    = data?.ai_insights.bear_case_target || currentPrice * 0.90;
+  const confidence    = data?.ai_insights.confidence_score || 85;
   const projChangePct = data?.ai_insights.projected_change_pct || 5.0;
+
+  const metricBar = [
+    {
+      label: `${forecastDays}D AI Target`,
+      value: `${sym}${targetPrice.toFixed(2)}`,
+      sub: `${projChangePct >= 0 ? "+" : ""}${projChangePct.toFixed(2)}% projected`,
+      subColor: projChangePct >= 0 ? "text-[#00D09C]" : "text-[#EB5B3C]",
+      accent: "text-white",
+    },
+    {
+      label: "Bull Case",
+      value: `${sym}${bullTarget.toFixed(2)}`,
+      sub: "Optimistic boundary",
+      subColor: "text-[#5A6070]",
+      accent: "text-[#00D09C]",
+    },
+    {
+      label: "Bear Case",
+      value: `${sym}${bearTarget.toFixed(2)}`,
+      sub: "Downside floor",
+      subColor: "text-[#5A6070]",
+      accent: "text-[#EB5B3C]",
+    },
+    {
+      label: "Signal Confidence",
+      value: `${confidence}%`,
+      sub: `Signal: ${data?.ai_insights.signal || "ACCUMULATE"}`,
+      subColor: "text-[#5367FF]",
+      accent: "text-[#5367FF]",
+    },
+  ];
 
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.97, y: 10 }}
+          initial={{ opacity: 0, scale: 0.97, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.97, y: 10 }}
-          transition={{ duration: 0.18 }}
-          className={`w-full ${
-            isMaximized ? "max-w-[98vw] h-[95vh]" : "max-w-5xl max-h-[92vh]"
-          } flex flex-col rounded-md border border-zinc-800 bg-[#0c0c0e] shadow-2xl overflow-hidden transition-all`}
+          exit={{ opacity: 0, scale: 0.97, y: 12 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className={`w-full ${isMaximized ? "max-w-[98vw] h-[95vh]" : "max-w-5xl max-h-[92vh]"} flex flex-col rounded-xl border border-[#262A34] bg-[#1A1D24] shadow-2xl overflow-hidden transition-all`}
         >
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-zinc-800 bg-[#0f0f12]">
+          {/* ── Modal Header ─────────────────────────── */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#262A34] bg-[#14171D] shrink-0">
             <div className="flex items-center space-x-3">
-              <span className="font-mono font-bold text-base text-zinc-100">
-                {ticker}
-              </span>
-              <span className="text-zinc-600 font-mono text-xs">•</span>
-              <span className="text-xs text-zinc-400 font-mono truncate max-w-xs">
-                {data?.company_name || "Asset"}
-              </span>
-              <span className="text-[10px] font-mono uppercase text-zinc-500 border border-zinc-800 px-1.5 py-0.5 rounded">
-                {data?.sector || "Equities"}
-              </span>
+              <div className="h-9 w-9 rounded-full bg-[#5367FF]/10 border border-[#5367FF]/20 text-[#5367FF] text-sm font-bold flex items-center justify-center">
+                {ticker.replace(".NS", "").charAt(0)}
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-base text-white font-mono">{ticker}</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-md border border-[#262A34] text-[#5A6070] font-mono">
+                    {data?.sector || "Equities"}
+                  </span>
+                </div>
+                <p className="text-xs text-[#5A6070] mt-0.5">{data?.company_name || "Asset"}</p>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2">
               {onTrade && (
                 <button
                   onClick={() => onTrade(ticker, currentPrice)}
-                  className="h-7 px-3 rounded bg-zinc-100 text-zinc-950 hover:bg-white text-xs font-mono font-semibold transition-colors"
+                  className="h-8 px-4 rounded-lg bg-[#00D09C] text-[#0B0E11] text-xs font-semibold hover:bg-[#00B88A] transition-colors"
                 >
-                  TRADE {ticker}
+                  Buy {ticker}
                 </button>
               )}
               <button
                 onClick={() => setIsMaximized(!isMaximized)}
-                className="h-7 w-7 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-200 flex items-center justify-center hover:bg-zinc-800 transition-colors"
-                title={isMaximized ? "Restore" : "Maximize"}
+                className="h-8 w-8 rounded-lg border border-[#262A34] text-[#5A6070] hover:text-[#A0A8B8] flex items-center justify-center hover:bg-[#20242D] transition-colors"
               >
                 {isMaximized ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
               </button>
               <button
                 onClick={onClose}
-                className="h-7 w-7 rounded border border-zinc-800 text-zinc-400 hover:text-zinc-200 flex items-center justify-center hover:bg-zinc-800 transition-colors"
+                className="h-8 w-8 rounded-lg border border-[#262A34] text-[#5A6070] hover:text-[#A0A8B8] flex items-center justify-center hover:bg-[#20242D] transition-colors"
               >
                 <X size={14} />
               </button>
             </div>
           </div>
 
-          {/* Clean 4-Column Hairline Stat Bar Under Header */}
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800 border-b border-zinc-800 bg-[#0f0f12] text-xs font-mono">
-            <div className="p-3">
-              <span className="text-[10px] uppercase text-zinc-500 tracking-wider">
-                {forecastDays}D PROJECTION
-              </span>
-              <div className="text-base font-semibold text-zinc-100 mt-0.5 tabular-nums">
-                {currencySymbol}{targetPrice.toFixed(2)}
+          {/* ── 4-Column Metric Bar ───────────────────── */}
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#262A34] border-b border-[#262A34] bg-[#14171D] shrink-0">
+            {metricBar.map((m, i) => (
+              <div key={i} className="p-4">
+                <p className="text-[10px] uppercase tracking-widest text-[#5A6070] mb-1 font-medium">{m.label}</p>
+                <p className={`text-lg font-bold tabular-nums font-mono ${m.accent}`}>{m.value}</p>
+                <p className={`text-[11px] mt-0.5 ${m.subColor}`}>{m.sub}</p>
               </div>
-              <span
-                className={`text-[11px] ${
-                  projChangePct >= 0 ? "text-emerald-400" : "text-rose-400"
-                }`}
-              >
-                {projChangePct >= 0 ? "+" : ""}{projChangePct.toFixed(2)}% expected
-              </span>
-            </div>
-
-            <div className="p-3">
-              <span className="text-[10px] uppercase text-zinc-500 tracking-wider">
-                BULL TARGET (CEILING)
-              </span>
-              <div className="text-base font-semibold text-emerald-400 mt-0.5 tabular-nums">
-                {currencySymbol}{bullTarget.toFixed(2)}
-              </div>
-              <span className="text-[11px] text-zinc-500">Optimistic boundary</span>
-            </div>
-
-            <div className="p-3">
-              <span className="text-[10px] uppercase text-zinc-500 tracking-wider">
-                BEAR FLOOR (SUPPORT)
-              </span>
-              <div className="text-base font-semibold text-rose-400 mt-0.5 tabular-nums">
-                {currencySymbol}{bearTarget.toFixed(2)}
-              </div>
-              <span className="text-[11px] text-zinc-500">Downside floor</span>
-            </div>
-
-            <div className="p-3">
-              <span className="text-[10px] uppercase text-zinc-500 tracking-wider">
-                MODEL CONFIDENCE
-              </span>
-              <div className="text-base font-semibold text-zinc-100 mt-0.5 tabular-nums">
-                {confidence}%
-              </div>
-              <span className="text-[11px] text-zinc-500">
-                SIGNAL: {data?.ai_insights.signal || "ACCUMULATE"}
-              </span>
-            </div>
+            ))}
           </div>
 
-          {/* Modal Main Body */}
+          {/* ── Modal Body ───────────────────────────── */}
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {/* Chart Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
-              <div className="flex items-center space-x-1 border border-zinc-800 rounded bg-zinc-900 p-0.5 font-mono text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-1 bg-[#14171D] rounded-lg p-1">
                 {(["1W", "1M", "3M", "6M", "1Y"] as const).map((tf) => (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`h-6 px-2 rounded transition-colors ${
+                    className={`h-7 px-3 rounded-md text-xs font-medium transition-all ${
                       timeframe === tf
-                        ? "bg-zinc-800 text-zinc-100 font-semibold"
-                        : "text-zinc-500 hover:text-zinc-300"
+                        ? "bg-[#1A1D24] text-white border border-[#262A34] shadow-sm"
+                        : "text-[#5A6070] hover:text-[#A0A8B8]"
                     }`}
                   >
                     {tf}
@@ -268,16 +238,16 @@ export function StockForecastModal({
                 ))}
               </div>
 
-              <div className="flex items-center space-x-2 font-mono text-xs">
-                <span className="text-zinc-500 text-[11px]">HORIZON:</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-[11px] text-[#5A6070] font-mono">HORIZON:</span>
                 {[15, 30, 60].map((d) => (
                   <button
                     key={d}
                     onClick={() => setForecastDays(d)}
-                    className={`h-6 px-2 rounded border transition-colors ${
+                    className={`h-7 px-2.5 rounded-lg text-xs font-medium border transition-all ${
                       forecastDays === d
-                        ? "border-zinc-700 bg-zinc-800 text-zinc-100 font-semibold"
-                        : "border-zinc-800 bg-zinc-900 text-zinc-500 hover:text-zinc-300"
+                        ? "border-[#5367FF]/40 bg-[#5367FF]/10 text-[#5367FF]"
+                        : "border-[#262A34] bg-[#14171D] text-[#5A6070] hover:text-[#A0A8B8]"
                     }`}
                   >
                     {d}D
@@ -285,157 +255,79 @@ export function StockForecastModal({
                 ))}
                 <button
                   onClick={() => setShowVolume(!showVolume)}
-                  className={`h-6 px-2 rounded border transition-colors ${
+                  className={`h-7 px-2.5 rounded-lg text-xs border transition-all ${
                     showVolume
-                      ? "border-zinc-700 bg-zinc-800 text-zinc-300"
-                      : "border-zinc-800 bg-zinc-900 text-zinc-600"
+                      ? "border-[#262A34] bg-[#20242D] text-[#A0A8B8]"
+                      : "border-[#262A34] bg-[#14171D] text-[#5A6070]"
                   }`}
                 >
-                  VOL
+                  Vol
                 </button>
               </div>
             </div>
 
-            {/* Chart Container */}
-            <div className="h-80 w-full border border-zinc-800/80 rounded bg-zinc-950/70 p-3">
+            {/* Chart */}
+            <div className="h-72 w-full border border-[#262A34] rounded-xl bg-[#14171D] p-4">
               {loading ? (
-                <div className="h-full flex flex-col items-center justify-center space-y-2 font-mono text-xs text-zinc-500">
-                  <RefreshCw className="h-5 w-5 animate-spin" />
-                  <span>Computing Bayesian forecast projection...</span>
+                <div className="h-full flex flex-col items-center justify-center space-y-2 text-[#5A6070] text-xs font-mono">
+                  <RefreshCw className="h-5 w-5 animate-spin text-[#5367FF]" />
+                  <span>Computing AI price projection...</span>
                 </div>
               ) : error ? (
-                <div className="h-full flex items-center justify-center font-mono text-xs text-rose-400">
-                  {error}
-                </div>
+                <div className="h-full flex items-center justify-center text-[#EB5B3C] text-xs font-mono">{error}</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart
-                    data={data?.chart_data || []}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
+                  <ComposedChart data={data?.chart_data || []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="forecastArea" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10b981" stopOpacity={0.12} />
-                        <stop offset="100%" stopColor="#10b981" stopOpacity={0.0} />
+                      <linearGradient id="aiGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stopColor="#5367FF" stopOpacity={0.10} />
+                        <stop offset="100%" stopColor="#5367FF" stopOpacity={0.00} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
-                    <XAxis
-                      dataKey="display_date"
-                      stroke="#71717a"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={{ stroke: "#27272a" }}
-                      fontFamily="var(--font-mono)"
-                    />
-                    <YAxis
-                      yAxisId="price"
-                      stroke="#71717a"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={["auto", "auto"]}
-                      tickFormatter={(val) => `${currencySymbol}${val.toFixed(0)}`}
-                      fontFamily="var(--font-mono)"
-                    />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#262A34" vertical={false} />
+                    <XAxis dataKey="display_date" stroke="#5A6070" fontSize={10} tickLine={false} axisLine={{ stroke: "#262A34" }} fontFamily="var(--font-mono)" />
+                    <YAxis yAxisId="price" stroke="#5A6070" fontSize={10} tickLine={false} axisLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `${sym}${v.toFixed(0)}`} fontFamily="var(--font-mono)" />
                     {showVolume && (
-                      <YAxis
-                        yAxisId="volume"
-                        orientation="right"
-                        stroke="#3f3f46"
-                        fontSize={9}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`}
-                        fontFamily="var(--font-mono)"
-                      />
+                      <YAxis yAxisId="volume" orientation="right" stroke="#373D4A" fontSize={9} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(0)}M`} fontFamily="var(--font-mono)" />
                     )}
-                    <Tooltip content={<ForecastTooltip currencySymbol={currencySymbol} />} />
-                    
-                    {/* Upper & Lower Bound Shading */}
-                    <Area
-                      yAxisId="price"
-                      type="monotone"
-                      dataKey="predicted_upper"
-                      stroke="none"
-                      fill="url(#forecastArea)"
-                      fillOpacity={1}
-                    />
-
-                    {/* Historical Close Line */}
-                    <Line
-                      yAxisId="price"
-                      type="monotone"
-                      dataKey="historical_price"
-                      name="Historical"
-                      stroke="#e4e4e7"
-                      strokeWidth={1.5}
-                      dot={false}
-                    />
-
-                    {/* Predicted Price Line */}
-                    <Line
-                      yAxisId="price"
-                      type="monotone"
-                      dataKey="predicted_price"
-                      name="AI Projection"
-                      stroke="#10b981"
-                      strokeWidth={1.5}
-                      strokeDasharray="4 2"
-                      dot={false}
-                    />
-
-                    {/* Moving average */}
-                    <Line
-                      yAxisId="price"
-                      type="monotone"
-                      dataKey="moving_average"
-                      name="20-Day SMA"
-                      stroke="#71717a"
-                      strokeWidth={1}
-                      dot={false}
-                    />
-
-                    {/* Volume Bars */}
-                    {showVolume && (
-                      <Bar
-                        yAxisId="volume"
-                        dataKey="volume"
-                        name="Volume"
-                        fill="#27272a"
-                        opacity={0.4}
-                      />
-                    )}
+                    <Tooltip content={<ForecastTooltip currencySymbol={sym} />} />
+                    <Area yAxisId="price" type="monotone" dataKey="predicted_upper" stroke="none" fill="url(#aiGradient)" fillOpacity={1} />
+                    <Line yAxisId="price" type="monotone" dataKey="historical_price" name="Historical" stroke="#00D09C" strokeWidth={2} dot={false} />
+                    <Line yAxisId="price" type="monotone" dataKey="predicted_price" name="AI Projection" stroke="#5367FF" strokeWidth={2} strokeDasharray="5 3" dot={false} />
+                    <Line yAxisId="price" type="monotone" dataKey="moving_average" name="20D SMA" stroke="#5A6070" strokeWidth={1} dot={false} />
+                    {showVolume && <Bar yAxisId="volume" dataKey="volume" name="Volume" fill="#262A34" opacity={0.5} />}
                   </ComposedChart>
                 </ResponsiveContainer>
               )}
             </div>
 
-            {/* Structured Insights Note */}
+            {/* Insights Grid */}
             {data?.ai_insights && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
-                <div className="border border-zinc-800 rounded bg-[#0f0f12] p-4 space-y-2">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-                    PROJECTED CATALYSTS & DRIVERS
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[#14171D] border border-[#262A34] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-[#00D09C]" />
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5A6070]">Growth Catalysts</p>
                   </div>
-                  <ul className="space-y-1.5 text-zinc-300">
+                  <ul className="space-y-2">
                     {data.ai_insights.catalysts.map((cat, idx) => (
-                      <li key={idx} className="flex items-start space-x-2">
-                        <span className="font-mono text-zinc-500 shrink-0">[{idx + 1}]</span>
+                      <li key={idx} className="flex items-start space-x-2 text-xs text-[#A0A8B8] leading-relaxed">
+                        <span className="text-[#00D09C] font-mono text-[10px] shrink-0 mt-0.5">[{idx + 1}]</span>
                         <span>{cat}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="border border-zinc-800 rounded bg-[#0f0f12] p-4 space-y-2">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-                    RISK FACTORS & SENSITIVITIES
+                <div className="bg-[#14171D] border border-[#262A34] rounded-xl p-4 space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-[#EB5B3C]" />
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#5A6070]">Key Risks to Watch</p>
                   </div>
-                  <ul className="space-y-1.5 text-zinc-400">
+                  <ul className="space-y-2">
                     {data.ai_insights.risk_factors.map((risk, idx) => (
-                      <li key={idx} className="flex items-start space-x-2">
-                        <span className="font-mono text-rose-400/80 shrink-0">!</span>
+                      <li key={idx} className="flex items-start space-x-2 text-xs text-[#A0A8B8] leading-relaxed">
+                        <span className="text-[#EB5B3C] font-mono text-[10px] shrink-0 mt-0.5">!</span>
                         <span>{risk}</span>
                       </li>
                     ))}
@@ -454,25 +346,23 @@ function ForecastTooltip({ active, payload, label, currencySymbol }: any) {
   if (active && payload && payload.length) {
     const pt = payload[0]?.payload as ChartPoint;
     return (
-      <div className="rounded border border-zinc-800 bg-[#0f0f12] p-3 shadow-xl font-mono text-xs space-y-1">
-        <p className="text-zinc-400 font-semibold">{label}</p>
+      <div className="rounded-xl border border-[#262A34] bg-[#1A1D24] p-3 shadow-2xl font-mono text-xs space-y-1.5">
+        <p className="text-[#5A6070] font-medium">{label}</p>
         <div className="flex justify-between items-center space-x-4">
-          <span className="text-zinc-500">Price:</span>
-          <span className="font-semibold text-zinc-100 tabular-nums">
-            {currencySymbol}{pt.price?.toFixed(2)}
-          </span>
+          <span className="text-[#5A6070]">Price:</span>
+          <span className="font-semibold text-white tabular-nums">{currencySymbol}{pt.price?.toFixed(2)}</span>
         </div>
         {pt.is_prediction && (
-          <div className="pt-1 border-t border-zinc-800 space-y-0.5 text-[11px]">
+          <div className="pt-1.5 border-t border-[#262A34] space-y-1">
             {pt.predicted_upper && (
-              <div className="flex justify-between text-emerald-400">
-                <span>Upper:</span>
+              <div className="flex justify-between text-[#00D09C] text-[11px]">
+                <span>Bull target:</span>
                 <span>{currencySymbol}{pt.predicted_upper.toFixed(2)}</span>
               </div>
             )}
             {pt.predicted_lower && (
-              <div className="flex justify-between text-rose-400">
-                <span>Lower:</span>
+              <div className="flex justify-between text-[#EB5B3C] text-[11px]">
+                <span>Bear floor:</span>
                 <span>{currencySymbol}{pt.predicted_lower.toFixed(2)}</span>
               </div>
             )}

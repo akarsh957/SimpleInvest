@@ -7,7 +7,7 @@ interface MarketScenariosProps {
   currentValue: number;
 }
 
-type ScenarioKey = "base" | "bull" | "bear" | "inflation" | "ai_boom";
+type ScenarioKey = "correction" | "bull" | "tech" | "rate_cut" | "custom";
 
 interface Scenario {
   id: ScenarioKey;
@@ -18,113 +18,130 @@ interface Scenario {
 
 const SCENARIOS: Scenario[] = [
   {
-    id: "base",
-    label: "Base Case",
-    impactPct: 5.0,
-    description: "Steady economic output with baseline corporate earnings trajectory.",
+    id: "correction",
+    label: "Market Correction −10%",
+    impactPct: -10.0,
+    description: "Broad equity selloff driven by valuation compression and risk-off positioning across global markets.",
+  },
+  {
+    id: "tech",
+    label: "Tech Pullback −15%",
+    impactPct: -15.0,
+    description: "Sector rotation out of high-multiple technology and growth stocks amid earnings deceleration concerns.",
+  },
+  {
+    id: "rate_cut",
+    label: "Rate Cut Rally +12%",
+    impactPct: 12.0,
+    description: "Central bank pivot towards accommodative policy drives multiple expansion and broad market re-rating.",
   },
   {
     id: "bull",
-    label: "Bull Rally",
-    impactPct: 18.0,
-    description: "Broad risk-on expansion, rate reductions, and expanding multiples.",
-  },
-  {
-    id: "bear",
-    label: "Bear Correction",
-    impactPct: -15.0,
-    description: "Macro liquidity tightening and compression in corporate margins.",
-  },
-  {
-    id: "inflation",
-    label: "Rate Shock",
-    impactPct: -8.0,
-    description: "Persistent inflation prints prompting elevated terminal policy rates.",
-  },
-  {
-    id: "ai_boom",
-    label: "Tech Supercycle",
+    label: "Bull Supercycle +25%",
     impactPct: 25.0,
-    description: "Accelerated capital allocation into enterprise compute and automation.",
+    description: "Accelerated capital allocation into equities on strong macro tailwinds and robust earnings delivery.",
   },
 ];
 
 export function MarketScenarios({ currentValue }: MarketScenariosProps) {
-  const [activeScenarioId, setActiveScenarioId] = useState<ScenarioKey>("base");
+  const [activeScenarioId, setActiveScenarioId] = useState<ScenarioKey>("correction");
+  const [customSlider, setCustomSlider] = useState(0);
 
+  const isCustom = activeScenarioId === "custom";
   const scenario = SCENARIOS.find((s) => s.id === activeScenarioId) || SCENARIOS[0];
-  const delta = currentValue * (scenario.impactPct / 100);
+  const impactPct = isCustom ? customSlider : scenario.impactPct;
+  const delta = currentValue * (impactPct / 100);
   const projectedValue = currentValue + delta;
   const isPositive = delta >= 0;
 
   return (
-    <div className="border border-zinc-800/80 bg-[#0f0f12] rounded-md p-5 space-y-4">
+    <div className="bg-[#1A1D24] border border-[#262A34] rounded-xl p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <span className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-            MACRO STRESS TEST
-          </span>
-          <span className="text-zinc-600 font-mono text-xs">•</span>
-          <span className="text-xs text-zinc-500 font-mono">SCENARIO SIMULATION</span>
+        <div>
+          <h3 className="text-sm font-semibold text-white">Macro Stress Test</h3>
+          <p className="text-[11px] text-[#5A6070] mt-0.5">Scenario Simulation</p>
         </div>
-        <span className="font-mono text-xs text-zinc-500">
-          DELTA: {isPositive ? "+" : ""}{scenario.impactPct.toFixed(1)}%
+        <span className={`text-sm font-bold tabular-nums font-mono ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
+          {isPositive ? "+" : ""}{impactPct.toFixed(1)}%
         </span>
       </div>
 
-      {/* Compact Segmented Bar at the top of the panel */}
-      <div className="flex items-center gap-1 p-1 bg-zinc-900 border border-zinc-800/80 rounded overflow-x-auto">
-        {SCENARIOS.map((s) => {
-          const isActive = s.id === activeScenarioId;
-          return (
-            <button
-              key={s.id}
-              onClick={() => setActiveScenarioId(s.id)}
-              className={`flex-1 min-w-[90px] py-1.5 px-2 rounded text-xs font-mono transition-colors text-center whitespace-nowrap ${
-                isActive
-                  ? "bg-zinc-800 text-zinc-100 font-semibold shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
-            >
-              {s.label}
-            </button>
-          );
-        })}
+      {/* Scenario Pills */}
+      <div className="flex flex-wrap gap-2">
+        {SCENARIOS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setActiveScenarioId(s.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              activeScenarioId === s.id
+                ? s.impactPct >= 0
+                  ? "bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20"
+                  : "bg-[#EB5B3C]/10 text-[#EB5B3C] border border-[#EB5B3C]/20"
+                : "bg-[#14171D] text-[#5A6070] border border-[#262A34] hover:text-[#A0A8B8] hover:border-[#383E4C]"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setActiveScenarioId("custom")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            isCustom
+              ? "bg-[#5367FF]/10 text-[#5367FF] border border-[#5367FF]/20"
+              : "bg-[#14171D] text-[#5A6070] border border-[#262A34] hover:text-[#A0A8B8] hover:border-[#383E4C]"
+          }`}
+        >
+          Custom Slider
+        </button>
       </div>
 
-      {/* Description */}
-      <p className="text-xs text-zinc-400 leading-relaxed font-sans">
-        {scenario.description}
-      </p>
-
-      {/* Clean 2-Column Comparison Row */}
-      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-zinc-800/80 font-mono text-xs">
-        <div className="p-3 bg-zinc-950/60 border border-zinc-800/60 rounded space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-500">
-            CURRENT BOOK VALUE
-          </span>
-          <div className="text-lg font-semibold text-zinc-200 tabular-nums">
-            {formatCurrency(currentValue)}
+      {/* Custom Slider */}
+      {isCustom && (
+        <div className="space-y-2">
+          <div className="flex justify-between text-[10px] font-mono text-[#5A6070]">
+            <span>−50%</span>
+            <span className={`font-semibold ${customSlider >= 0 ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
+              {customSlider >= 0 ? "+" : ""}{customSlider}%
+            </span>
+            <span>+50%</span>
           </div>
-          <span className="text-[10px] text-zinc-600">BASELINE</span>
+          <input
+            type="range"
+            min={-50}
+            max={50}
+            value={customSlider}
+            onChange={(e) => setCustomSlider(Number(e.target.value))}
+            className="w-full h-1.5 bg-[#262A34] rounded-full appearance-none cursor-pointer accent-[#5367FF]"
+          />
+        </div>
+      )}
+
+      {/* Scenario Description */}
+      {!isCustom && (
+        <p className="text-xs text-[#5A6070] leading-relaxed">
+          {scenario.description}
+        </p>
+      )}
+
+      {/* Comparison Grid */}
+      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#262A34]">
+        <div className="p-3 bg-[#14171D] rounded-lg">
+          <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-1">Current Value</p>
+          <p className="text-base font-bold text-white tabular-nums font-mono">
+            {formatCurrency(currentValue)}
+          </p>
+          <p className="text-[10px] text-[#373D4A] mt-0.5">Baseline</p>
         </div>
 
-        <div className="p-3 bg-zinc-950/60 border border-zinc-800/60 rounded space-y-1">
-          <span className="text-[10px] uppercase tracking-wider text-zinc-500">
-            PROJECTED SIMULATION
-          </span>
-          <div className={`text-lg font-semibold tabular-nums ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+        <div className="p-3 bg-[#14171D] rounded-lg">
+          <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-1">Projected Value</p>
+          <p className={`text-base font-bold tabular-nums font-mono ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
             {formatCurrency(projectedValue)}
-          </div>
-          <div className="flex items-center space-x-1 text-[11px] tabular-nums">
-            <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
-              {isPositive ? "+" : ""}{formatCurrency(delta)}
-            </span>
-            <span className="text-zinc-500">
-              ({isPositive ? "+" : ""}{scenario.impactPct.toFixed(1)}%)
-            </span>
-          </div>
+          </p>
+          <p className={`text-[11px] tabular-nums font-mono mt-0.5 ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
+            {isPositive ? "+" : ""}{formatCurrency(delta)}
+          </p>
         </div>
       </div>
     </div>
