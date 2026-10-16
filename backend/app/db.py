@@ -16,4 +16,9 @@ def get_supabase_client() -> Client:
         raise ValueError("Supabase URL and Key must be set")
     return create_client(db_settings.SUPABASE_URL, db_settings.SUPABASE_KEY)
 
+def get_authenticated_supabase_client(access_token: str) -> Client:
+    client = get_supabase_client()
+    client.postgrest.auth(access_token)
+    return client
+
 supabase = get_supabase_client() if db_settings.SUPABASE_URL and db_settings.SUPABASE_KEY else None

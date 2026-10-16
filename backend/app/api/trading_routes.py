@@ -1,6 +1,6 @@
 import logging
-from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from typing import Optional
+from fastapi import APIRouter, Header, HTTPException, status
 
 try:
     from backend.app.schemas.trading import (
@@ -11,7 +11,7 @@ try:
     )
     from backend.app.services.twelve_data import TwelveDataService
     from backend.app.services.ai_engine import ai_engine
-    from backend.app.db import supabase
+    from backend.app.db import get_authenticated_supabase_client, supabase
 except ImportError:
     from app.schemas.trading import (
         TradeExecutionRequest,
@@ -21,7 +21,7 @@ except ImportError:
     )
     from app.services.twelve_data import TwelveDataService
     from app.services.ai_engine import ai_engine
-    from app.db import supabase
+    from app.db import get_authenticated_supabase_client, supabase
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Trading"])
@@ -32,11 +32,23 @@ router = APIRouter(prefix="/api", tags=["Trading"])
     status_code=status.HTTP_200_OK,
     summary="Execute a paper trade",
 )
-async def execute_trade(request: TradeExecutionRequest) -> TradeExecutionResponse:
+async def execute_trade(
+    request: TradeExecutionRequest,
+    authorization: Optional[str] = Header(default=None),
+) -> TradeExecutionResponse:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Authentication is required to execute trades")
+
+    access_token = authorization.split(" ", 1)[1].strip()
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Authentication is required to execute trades")
+
     if supabase is None:
         raise HTTPException(status_code=500, detail="Database connection not configured")
-        
+
     try:
+        user_supabase = get_authenticated_supabase_client(access_token)
+
         # 1. Get real-time price from Twelve Data, with yfinance fallback
         current_price = None
         try:
@@ -68,7 +80,7 @@ async def execute_trade(request: TradeExecutionRequest) -> TradeExecutionRespons
         # The trigger we wrote handles deductions, but we can insert the order and let the trigger run.
         
         # 3. Insert order into supabase
-        order_insert = supabase.table("orders").insert({
+        order_insert = user_supabase.table("orders").insert({
             "user_id": request.user_id,
             "ticker": request.ticker,
             "side": request.side,
@@ -90,6 +102,8 @@ async def execute_trade(request: TradeExecutionRequest) -> TradeExecutionRespons
             total_value=order_data["total_value"]
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error executing trade: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

@@ -9,7 +9,6 @@ export interface TradeModalProps {
   onClose: () => void;
   ticker: string;
   currentPrice: number;
-  userId?: string;
   initialSide?: "BUY" | "SELL";
   onTradeSuccess?: () => void;
 }
@@ -19,7 +18,6 @@ export function TradeModal({
   onClose,
   ticker,
   currentPrice,
-  userId = "00000000-0000-0000-0000-000000000000",
   initialSide = "BUY",
   onTradeSuccess,
 }: TradeModalProps) {
@@ -51,7 +49,7 @@ export function TradeModal({
       const response = await fetch("/api/trade/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, ticker, side, shares: Number(shares) }),
+        body: JSON.stringify({ ticker, side, shares: Number(shares) }),
       });
 
       let data: any = null;

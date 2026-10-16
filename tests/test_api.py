@@ -89,3 +89,29 @@ def test_portfolio_audit_invalid_holding_amount():
     }
     response = client.post("/api/portfolio/audit", json=payload)
     assert response.status_code == 422
+
+
+def test_trade_requires_authenticated_user():
+    response = client.post(
+        "/api/trade/execute",
+        json={
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "ticker": "AAPL",
+            "side": "BUY",
+            "shares": 1,
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_trade_rejects_nonpositive_shares():
+    response = client.post(
+        "/api/trade/execute",
+        json={
+            "user_id": "00000000-0000-0000-0000-000000000001",
+            "ticker": "AAPL",
+            "side": "BUY",
+            "shares": 0,
+        },
+    )
+    assert response.status_code == 422

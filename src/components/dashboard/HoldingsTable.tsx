@@ -21,7 +21,6 @@ interface HoldingsTableProps {
   isLoading?: boolean;
   onDeleteHolding: (id: string) => Promise<void>;
   onOpenAddModal: () => void;
-  userId?: string;
   onTradeSuccess?: () => void;
 }
 
@@ -31,7 +30,6 @@ export function HoldingsTable({
   isLoading,
   onDeleteHolding,
   onOpenAddModal,
-  userId,
   onTradeSuccess,
 }: HoldingsTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -335,7 +333,6 @@ export function HoldingsTable({
           onClose={() => setTradeTarget(null)}
           ticker={tradeTarget.ticker}
           currentPrice={tradeTarget.price}
-          userId={userId}
           initialSide={tradeTarget.side}
           onTradeSuccess={() => {
             if (onTradeSuccess) onTradeSuccess();

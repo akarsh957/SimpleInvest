@@ -96,12 +96,26 @@ export function StockForecastModal({
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("http://localhost:8000/api/market/stock-forecast", {
+        const timeframeMap: Record<string, string> = {
+          "1W": "1mo",
+          "1M": "1mo",
+          "3M": "3mo",
+          "6M": "6mo",
+          "1Y": "1y",
+        };
+        const res = await fetch("/api/market/forecast", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ticker, timeframe, forecast_days: forecastDays }),
+          body: JSON.stringify({
+            ticker,
+            timeframe: timeframeMap[timeframe] ?? "1mo",
+            forecast_days: forecastDays,
+          }),
         });
-        if (!res.ok) throw new Error(`Failed to load forecast (${res.status})`);
+        if (!res.ok) {
+          const failure = await res.json().catch(() => null);
+          throw new Error(failure?.detail || `Failed to load forecast (${res.status})`);
+        }
         const json = await res.json();
         if (!isCancelled) setData(json);
       } catch (err: any) {
