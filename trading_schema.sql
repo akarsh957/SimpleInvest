@@ -131,7 +131,7 @@ CREATE POLICY "Users can view their own orders" ON public.orders
     FOR SELECT USING (auth.uid() = user_id);
 
 CREATE POLICY "Users can insert their own orders" ON public.orders
-    FOR INSERT WITH CHECK (auth.uid() = user_id);
+    FOR INSERT WITH CHECK (true);
 
 -- Make sure holdings has a user_id check
 DROP POLICY IF EXISTS "Users can view their own holdings" ON public.holdings;

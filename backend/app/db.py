@@ -1,6 +1,9 @@
 import os
+from dotenv import load_dotenv
 from supabase import create_client, Client
 from pydantic_settings import BaseSettings
+
+load_dotenv()
 
 class DBSettings(BaseSettings):
     SUPABASE_URL: str = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
