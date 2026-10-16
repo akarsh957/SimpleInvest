@@ -176,6 +176,7 @@ SET search_path = public
 AS $$
 DECLARE
     current_balance NUMERIC;
+    current_shares NUMERIC;
     default_portfolio_id UUID;
 BEGIN
     IF NEW.status <> 'EXECUTED' THEN
@@ -247,21 +248,28 @@ BEGIN
             updated_at = now();
 
     ELSIF NEW.side = 'SELL' THEN
-        DELETE FROM public.holdings
+        SELECT shares
+        INTO current_shares
+        FROM public.holdings
         WHERE portfolio_id = default_portfolio_id
           AND ticker = upper(btrim(NEW.ticker))
-          AND shares = NEW.shares;
+        FOR UPDATE;
 
         IF NOT FOUND THEN
-            UPDATE public.holdings
-            SET shares = shares - NEW.shares, updated_at = now()
-            WHERE portfolio_id = default_portfolio_id
-              AND ticker = upper(btrim(NEW.ticker))
-              AND shares > NEW.shares;
+            RAISE EXCEPTION 'Insufficient shares to execute sell order';
+        END IF;
 
-            IF NOT FOUND THEN
-                RAISE EXCEPTION 'Insufficient shares to execute sell order';
-            END IF;
+        IF current_shares < NEW.shares THEN
+            RAISE EXCEPTION 'Insufficient shares to execute sell order';
+        ELSIF current_shares = NEW.shares THEN
+            DELETE FROM public.holdings
+            WHERE portfolio_id = default_portfolio_id
+              AND ticker = upper(btrim(NEW.ticker));
+        ELSE
+            UPDATE public.holdings
+            SET shares = current_shares - NEW.shares, updated_at = now()
+            WHERE portfolio_id = default_portfolio_id
+              AND ticker = upper(btrim(NEW.ticker));
         END IF;
 
         UPDATE public.accounts

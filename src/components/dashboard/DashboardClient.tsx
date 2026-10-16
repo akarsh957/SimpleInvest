@@ -189,8 +189,73 @@ export function DashboardClient({
   }, [totalInvested, totalEstimatedValue, chartTimeframe]);
 
   const handleExport = () => {
-    setExportNotice("Exporting CSV position ledger...");
-    setTimeout(() => setExportNotice(null), 2500);
+    if (holdings.length === 0) {
+      setExportNotice("There are no positions to export.");
+      window.setTimeout(() => setExportNotice(null), 3000);
+      return;
+    }
+
+    try {
+      const auditByTicker = new Map(
+        (auditData?.holdings_detail ?? []).map((detail) => [detail.ticker.toUpperCase(), detail])
+      );
+      const rows = [
+        [
+          "Ticker",
+          "Company",
+          "Shares",
+          "Average Buy Price",
+          "Invested Amount",
+          "Current Value",
+          "Gain/Loss",
+          "Return (%)",
+          "Sector",
+        ],
+        ...holdings.map((holding) => {
+          const invested = holding.shares * holding.average_buy_price;
+          const detail = auditByTicker.get(holding.ticker.toUpperCase());
+          const currentValue = detail?.current_value ?? invested;
+          const gainLoss = currentValue - invested;
+
+          return [
+            holding.ticker,
+            detail?.company_name ?? holding.ticker,
+            holding.shares,
+            holding.average_buy_price,
+            invested,
+            currentValue,
+            gainLoss,
+            invested > 0 ? (gainLoss / invested) * 100 : 0,
+            detail?.sector ?? "",
+          ];
+        }),
+      ];
+      const csv = rows
+        .map((row) => row.map(escapeCsvCell).join(","))
+        .join("\r\n");
+      const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const portfolioName = activePortfolio?.name ?? "portfolio";
+      const filenamePortfolio = portfolioName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "portfolio";
+
+      link.href = downloadUrl;
+      link.download = `simpleinvest-${filenamePortfolio}-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+
+      setExportNotice("CSV downloaded successfully.");
+      window.setTimeout(() => setExportNotice(null), 3000);
+    } catch (error) {
+      console.error("Failed to export portfolio CSV:", error);
+      setExportNotice("CSV export failed. Please try again.");
+      window.setTimeout(() => setExportNotice(null), 3000);
+    }
   };
 
   return (
@@ -421,6 +486,14 @@ export function DashboardClient({
       />
     </div>
   );
+}
+
+function escapeCsvCell(value: string | number): string {
+  let text = String(value);
+  if (typeof value === "string" && /^[\s\u0000-\u001f]*[=+\-@]/.test(text)) {
+    text = `'${text}`;
+  }
+  return `"${text.replace(/"/g, '""')}"`;
 }
 
 function PortfolioChartTooltip({ active, payload, label }: any) {

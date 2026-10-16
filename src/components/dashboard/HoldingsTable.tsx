@@ -34,6 +34,7 @@ export function HoldingsTable({
 }: HoldingsTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedMarket, setSelectedMarket] = useState<"ALL" | "US" | "INDIA">("ALL");
   const [selectedSector, setSelectedSector] = useState("ALL");
   const [sortField, setSortField] = useState<"ticker" | "invested" | "weight_percentage">("invested");
   const [sortAsc, setSortAsc] = useState(false);
@@ -80,8 +81,13 @@ export function HoldingsTable({
         const matchesQuery =
           h.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
           h.company_name.toLowerCase().includes(searchQuery.toLowerCase());
+        const isIndianEquity = /\.(NS|BO)$/i.test(h.ticker);
+        const matchesMarket =
+          selectedMarket === "ALL" ||
+          (selectedMarket === "INDIA" && isIndianEquity) ||
+          (selectedMarket === "US" && !isIndianEquity);
         const matchesSector = selectedSector === "ALL" || h.sector === selectedSector;
-        return matchesQuery && matchesSector;
+        return matchesQuery && matchesMarket && matchesSector;
       })
       .sort((a, b) => {
         let valA = a[sortField];
@@ -93,7 +99,7 @@ export function HoldingsTable({
         }
         return sortAsc ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
       });
-  }, [mergedHoldings, searchQuery, selectedSector, sortField, sortAsc]);
+  }, [mergedHoldings, searchQuery, selectedMarket, selectedSector, sortField, sortAsc]);
 
   const toggleSort = (field: "ticker" | "invested" | "weight_percentage") => {
     if (sortField === field) setSortAsc(!sortAsc);
@@ -142,20 +148,25 @@ export function HoldingsTable({
             </span>
 
             {/* Category pills */}
-            <div className="hidden sm:flex items-center gap-1">
-              {["ALL", "US Equities", "Indian Equities"].map((cat) => {
-                const active = cat === "ALL" ? selectedSector === "ALL" : false;
+            <div className="flex items-center gap-1">
+              {([
+                { label: "ALL", value: "ALL" },
+                { label: "US Equities", value: "US" },
+                { label: "Indian Equities", value: "INDIA" },
+              ] as const).map((cat) => {
+                const active = selectedMarket === cat.value;
                 return (
                   <button
-                    key={cat}
-                    onClick={() => setSelectedSector(cat === "ALL" ? "ALL" : selectedSector)}
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setSelectedMarket(cat.value)}
                     className={`h-6 px-2.5 rounded-md text-[11px] font-medium transition-colors ${
-                      cat === selectedSector || (cat === "ALL" && selectedSector === "ALL")
+                      active
                         ? "bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20"
                         : "text-[#5A6070] hover:text-[#A0A8B8] hover:bg-[#20242D]"
                     }`}
                   >
-                    {cat}
+                    {cat.label}
                   </button>
                 );
               })}
@@ -233,7 +244,13 @@ export function HoldingsTable({
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-[#262A34]/60">
-                {filteredHoldings.map((item) => {
+                {filteredHoldings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-[#5A6070] text-xs">
+                      No positions match these filters.
+                    </TableCell>
+                  </TableRow>
+                ) : filteredHoldings.map((item) => {
                   const isPos = item.gainLoss >= 0;
                   const initial = item.ticker.charAt(0).toUpperCase();
                   return (

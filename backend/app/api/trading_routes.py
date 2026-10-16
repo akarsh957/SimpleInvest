@@ -106,6 +106,14 @@ async def execute_trade(
         raise
     except Exception as e:
         logger.error(f"Error executing trade: {e}", exc_info=True)
+        if "holdings_shares_check" in str(e):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Sell failed because Supabase is still using the old sell trigger. "
+                    "Apply the latest sell-order migration and retry."
+                ),
+            ) from e
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post(
