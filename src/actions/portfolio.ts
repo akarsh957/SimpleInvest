@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
 import { Holding, Portfolio, PortfolioAuditResponse } from '@/src/types/portfolio';
+import { getBackendBaseUrl } from '@/src/lib/backend';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = getBackendBaseUrl();
 
 /**
  * Get or initialize the user's default portfolio.

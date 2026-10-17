@@ -13,7 +13,7 @@ export interface Holding {
     average_buy_price: number;
 }
 
-export function useRealtimePortfolio(userId: string | undefined) {
+export function useRealtimePortfolio(userId: string | undefined, portfolioId?: string) {
     const [balance, setBalance] = useState<number | null>(null);
     const [holdings, setHoldings] = useState<Holding[]>([]);
     const supabase = createClient();
@@ -21,49 +21,64 @@ export function useRealtimePortfolio(userId: string | undefined) {
     useEffect(() => {
         if (!userId) return;
 
-        // Fetch initial data
         const fetchInitialData = async () => {
             const { data: accountData } = await supabase
                 .from('accounts')
                 .select('balance')
                 .eq('user_id', userId)
-                .single();
-            
-            if (accountData) setBalance(accountData.balance);
+                .maybeSingle();
+
+            if (accountData) setBalance(Number(accountData.balance));
+
+            if (!portfolioId) {
+                setHoldings([]);
+                return;
+            }
 
             const { data: holdingsData } = await supabase
                 .from('holdings')
                 .select('ticker, shares, average_buy_price')
-                .eq('user_id', userId);
-            
-            if (holdingsData) setHoldings(holdingsData);
+                .eq('portfolio_id', portfolioId);
+
+            if (holdingsData) {
+                setHoldings(
+                    holdingsData.map((item) => ({
+                        ticker: item.ticker,
+                        shares: Number(item.shares),
+                        average_buy_price: Number(item.average_buy_price),
+                    }))
+                );
+            }
         };
 
         fetchInitialData();
 
-        // Subscribe to changes
         const accountsSubscription = supabase
             .channel('accounts_channel')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts', filter: `user_id=eq.${userId}` }, (payload: any) => {
                 const newData = payload.new as { balance: number };
                 if (newData && newData.balance !== undefined) {
-                    setBalance(newData.balance);
+                    setBalance(Number(newData.balance));
                 }
             })
             .subscribe();
 
-        const holdingsSubscription = supabase
-            .channel('holdings_channel')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `user_id=eq.${userId}` }, (payload: any) => {
-                fetchInitialData(); // Re-fetch on any holdings change to simplify state management
-            })
-            .subscribe();
+        const holdingsSubscription = portfolioId
+            ? supabase
+                .channel('holdings_channel')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'holdings', filter: `portfolio_id=eq.${portfolioId}` }, () => {
+                    fetchInitialData();
+                })
+                .subscribe()
+            : null;
 
         return () => {
             supabase.removeChannel(accountsSubscription);
-            supabase.removeChannel(holdingsSubscription);
+            if (holdingsSubscription) {
+                supabase.removeChannel(holdingsSubscription);
+            }
         };
-    }, [userId, supabase]);
+    }, [userId, portfolioId, supabase]);
 
     return { balance, holdings };
 }

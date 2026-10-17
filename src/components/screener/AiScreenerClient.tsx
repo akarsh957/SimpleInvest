@@ -6,6 +6,7 @@ import { TerminalHeader } from "@/src/components/terminal/TerminalHeader";
 import { Portfolio } from "@/src/types/portfolio";
 import { TradeModal } from "@/src/components/trading/TradeModal";
 import { StockForecastModal } from "@/src/components/market/StockForecastModal";
+import { getBackendUrl } from "@/src/lib/backend";
 
 interface GrowthOpportunity {
   ticker: string;
@@ -106,7 +107,7 @@ export function AiScreenerClient({
   const runGrowthScout = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/ai/growth-scout", {
+      const res = await fetch(getBackendUrl("/api/ai/growth-scout"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ risk_preference: riskPreference, sector: sectorFilter }),

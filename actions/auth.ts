@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/server'
 
 export interface AuthResponse {
   error?: string
+  message?: string
   success?: boolean
 }
 
@@ -60,7 +61,7 @@ export async function signup(formData: FormData): Promise<AuthResponse | void> {
     return { error: 'Email and password are required.' }
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -80,6 +81,14 @@ export async function signup(formData: FormData): Promise<AuthResponse | void> {
   }
 
   revalidatePath('/', 'layout')
+
+  if (!data.session) {
+    return {
+      success: true,
+      message: 'Your account was created. Check your email to confirm it, then sign in.',
+    }
+  }
+
   redirect('/dashboard')
 }
 

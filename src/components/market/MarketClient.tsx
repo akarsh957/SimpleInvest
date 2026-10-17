@@ -6,6 +6,7 @@ import { TerminalHeader } from "@/src/components/terminal/TerminalHeader";
 import { Portfolio } from "@/src/types/portfolio";
 import { StockForecastModal } from "./StockForecastModal";
 import { TradeModal } from "@/src/components/trading/TradeModal";
+import { getBackendUrl } from "@/src/lib/backend";
 
 interface MarketTrendItem {
   ticker: string;
@@ -137,7 +138,7 @@ export function MarketClient({
   const fetchTrends = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/market/trends");
+      const res = await fetch(getBackendUrl("/api/market/trends"));
       if (res.ok) {
         const json: MarketTrendsResponse = await res.json();
         setTrendsData(json);

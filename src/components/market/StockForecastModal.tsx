@@ -36,6 +36,7 @@ export interface AIForecastInsights {
   target_price: number;
   projected_change_pct: number;
   confidence_score: number;
+  confidence_basis: "language_model" | "quantitative_model";
   time_horizon: string;
   trend_direction: string;
   bull_case_target: number;
@@ -136,7 +137,7 @@ export function StockForecastModal({
   const targetPrice   = data?.ai_insights.target_price   || currentPrice * 1.05;
   const bullTarget    = data?.ai_insights.bull_case_target || currentPrice * 1.15;
   const bearTarget    = data?.ai_insights.bear_case_target || currentPrice * 0.90;
-  const confidence    = data?.ai_insights.confidence_score || 85;
+  const confidence    = data?.ai_insights.confidence_score;
   const projChangePct = data?.ai_insights.projected_change_pct || 5.0;
 
   const metricBar = [
@@ -163,8 +164,14 @@ export function StockForecastModal({
     },
     {
       label: "Signal Confidence",
-      value: `${confidence}%`,
-      sub: `Signal: ${data?.ai_insights.signal || "ACCUMULATE"}`,
+      value: confidence == null ? "—" : `${confidence}%`,
+      sub: confidence == null
+        ? "Confidence unavailable"
+        : `Signal: ${data?.ai_insights.signal || "N/A"} · ${
+          data?.ai_insights.confidence_basis === "quantitative_model"
+            ? "Quantitative estimate"
+            : "Language model estimate"
+        }`,
       subColor: "text-[#5367FF]",
       accent: "text-[#5367FF]",
     },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getBackendBaseUrl } from "@/src/lib/backend";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ detail: "You must be signed in to trade" }, { status: 401 });
     }
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const backendUrl = getBackendBaseUrl();
     const res = await fetch(`${backendUrl}/api/trade/execute`, {
       method: "POST",
       headers: {

@@ -255,11 +255,7 @@ BEGIN
           AND ticker = upper(btrim(NEW.ticker))
         FOR UPDATE;
 
-        IF NOT FOUND THEN
-            RAISE EXCEPTION 'Insufficient shares to execute sell order';
-        END IF;
-
-        IF current_shares < NEW.shares THEN
+        IF NOT FOUND OR current_shares < NEW.shares THEN
             RAISE EXCEPTION 'Insufficient shares to execute sell order';
         ELSIF current_shares = NEW.shares THEN
             DELETE FROM public.holdings

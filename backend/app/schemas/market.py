@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -65,6 +65,7 @@ class AIForecastInsights(BaseModel):
     target_price: float
     projected_change_pct: float
     confidence_score: int  # 0 to 100
+    confidence_basis: Literal["language_model", "quantitative_model"]
     time_horizon: str  # e.g. "30 Days"
     trend_direction: str  # BULLISH, BEARISH, NEUTRAL
     bull_case_target: float

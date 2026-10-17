@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 
 export interface TradeModalProps {
   isOpen: boolean;
@@ -21,21 +22,85 @@ export function TradeModal({
   initialSide = "BUY",
   onTradeSuccess,
 }: TradeModalProps) {
-  const [side, setSide]         = useState<"BUY" | "SELL">(initialSide);
-  const [shares, setShares]     = useState<number | "">("");
+  const supabase = createClient();
+  const [side, setSide] = useState<"BUY" | "SELL">(initialSide);
+  const [shares, setShares] = useState<number | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [availableCash, setAvailableCash] = useState<number>(100000);
+  const [ownedShares, setOwnedShares] = useState<number>(0);
 
   useEffect(() => { if (initialSide) setSide(initialSide); }, [initialSide]);
   useEffect(() => { if (isOpen) { setShares(""); setError(null); } }, [isOpen]);
 
-  const numShares    = typeof shares === "number" ? shares : 0;
-  const estimatedCost = numShares * currentPrice;
-  const buyingPower   = 100000.0;
-  const remainingCash = buyingPower - (side === "BUY" ? estimatedCost : 0);
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPortfolioState = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setAvailableCash(100000);
+        setOwnedShares(0);
+        return;
+      }
+
+      const { data: accountData } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (accountData && isMounted) {
+        setAvailableCash(Number(accountData.balance) || 0);
+      }
+
+      const { data: portfolioData } = await supabase
+        .from("portfolios")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!portfolioData) {
+        setOwnedShares(0);
+        return;
+      }
+
+      const { data: holdingsData } = await supabase
+        .from("holdings")
+        .select("shares")
+        .eq("portfolio_id", portfolioData.id)
+        .eq("ticker", ticker.toUpperCase());
+
+      if (isMounted) {
+        const totalOwned = (holdingsData ?? []).reduce((sum, item) => sum + Number(item.shares || 0), 0);
+        setOwnedShares(totalOwned);
+      }
+    };
+
+    if (isOpen) {
+      loadPortfolioState();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, supabase, ticker]);
+
+  const safeCurrentPrice = currentPrice > 0 ? currentPrice : 1;
+  const numShares = typeof shares === "number" ? shares : 0;
+  const estimatedCost = numShares * safeCurrentPrice;
+  const remainingCash = Math.max(0, availableCash - (side === "BUY" ? estimatedCost : 0));
+  const maxSharesForSide = side === "BUY"
+    ? Math.max(0, Math.floor(availableCash / safeCurrentPrice))
+    : Math.max(0, Math.floor(ownedShares));
 
   const addShares = (n: number) => {
-    setShares((prev) => Math.max(1, (typeof prev === "number" ? prev : 0) + n));
+    const currentValue = typeof shares === "number" ? shares : 0;
+    const nextValue = currentValue + n;
+    const clampedValue = Math.max(1, Math.min(nextValue, Math.max(1, maxSharesForSide || 1)));
+    setShares(clampedValue);
   };
 
   const handleTrade = async (e: React.FormEvent) => {
@@ -163,7 +228,24 @@ export function TradeModal({
                   min="1"
                   step="1"
                   value={shares}
-                  onChange={(e) => setShares(e.target.value === "" ? "" : Number(e.target.value))}
+                  onChange={(e) => {
+                    if (e.target.value === "") {
+                      setShares("");
+                      return;
+                    }
+
+                    const nextValue = Number(e.target.value);
+                    if (Number.isNaN(nextValue)) {
+                      setShares("");
+                      return;
+                    }
+
+                    const clamped = side === "BUY"
+                      ? Math.min(nextValue, Math.max(1, maxSharesForSide || 1))
+                      : Math.min(nextValue, Math.max(1, maxSharesForSide || 1));
+
+                    setShares(clamped);
+                  }}
                   className="w-full h-10 bg-[#14171D] border border-[#262A34] rounded-lg px-3 text-sm font-mono text-white outline-none focus:border-[#383E4C] transition-colors placeholder:text-[#373D4A] tabular-nums"
                   placeholder="0"
                   autoFocus
@@ -183,8 +265,8 @@ export function TradeModal({
                   <button
                     type="button"
                     onClick={() => {
-                      const maxShares = Math.floor(buyingPower / currentPrice);
-                      setShares(maxShares);
+                      const maxShares = maxSharesForSide > 0 ? maxSharesForSide : 0;
+                      setShares(maxShares > 0 ? maxShares : "");
                     }}
                     className="h-6 px-2 rounded-md text-[11px] font-medium bg-[#262A34] text-[#A0A8B8] hover:bg-[#383E4C] hover:text-white transition-colors"
                   >

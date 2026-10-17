@@ -702,6 +702,7 @@ Return strict JSON with these EXACT keys:
                 target_price=round(target, 2),
                 projected_change_pct=proj_pct,
                 confidence_score=int(data.get("confidence_score", 84)),
+                confidence_basis="language_model",
                 time_horizon=horizon_str,
                 trend_direction=str(data.get("trend_direction", "BULLISH")).upper(),
                 bull_case_target=round(bull, 2),
@@ -772,6 +773,25 @@ Return strict JSON with these EXACT keys:
 
         expected_gain_pct = profile["drift"] * (horizon_ratio ** 0.7) * 100.0
         target_price = round(current_price * (1.0 + (expected_gain_pct / 100.0)), 2)
+
+        range_ratio = (
+            (fifty_two_week_high - fifty_two_week_low) / current_price
+            if current_price > 0 and fifty_two_week_high > fifty_two_week_low
+            else 0.0
+        )
+        momentum_adjustment = max(-4.0, min(4.0, recent_momentum_pct * 0.15))
+        volatility_penalty = min(8.0, max(0.0, (range_ratio - 0.4) * 10.0))
+        beta_penalty = max(0.0, ((beta if beta is not None else 1.0) - 1.0) * 3.0)
+        horizon_penalty = max(0.0, (forecast_days - 30) / 30.0 * 2.0)
+        confidence = round(
+            max(
+                55.0,
+                min(
+                    95.0,
+                    profile["conf"] + momentum_adjustment - volatility_penalty - beta_penalty - horizon_penalty,
+                ),
+            )
+        )
         
         bull_delta = profile["vol"] * 1.5 * (horizon_ratio ** 0.5)
         bear_delta = profile["vol"] * 1.2 * (horizon_ratio ** 0.5)
@@ -806,7 +826,8 @@ Return strict JSON with these EXACT keys:
             sentiment_score=profile["sentiment"],
             target_price=target_price,
             projected_change_pct=round(expected_gain_pct, 2),
-            confidence_score=profile["conf"],
+            confidence_score=confidence,
+            confidence_basis="quantitative_model",
             time_horizon=horizon_str,
             trend_direction="BULLISH" if expected_gain_pct > 0 else "NEUTRAL",
             bull_case_target=bull_case,

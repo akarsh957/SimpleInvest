@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getBackendBaseUrl } from "@/src/lib/backend";
 
 export async function POST(request: NextRequest) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const backendUrl = getBackendBaseUrl();
     const response = await fetch(`${backendUrl}/api/market/forecast`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

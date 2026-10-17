@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings
 load_dotenv()
 
 class DBSettings(BaseSettings):
-    SUPABASE_URL: str = os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
-    SUPABASE_KEY: str = os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
 
 db_settings = DBSettings()
 
