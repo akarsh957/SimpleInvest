@@ -63,6 +63,15 @@ pytest tests/ -v
 npx tsc --noEmit
 ```
 
+## Render Deployment
+
+The root `render.yaml` Blueprint provisions both the FastAPI backend and the Next.js frontend. In the Render Dashboard, create a Blueprint from this repository's `main` branch and provide these values when prompted:
+
+- Backend: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `GROQ_API_KEY`, and `TWELVE_DATA_API_KEY`.
+- Frontend: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+Enter credentials directly in Render; do not commit them to the repository. The Blueprint wires the frontend API URL and backend CORS origin to the corresponding Render services.
+
 ---
 
 ## License

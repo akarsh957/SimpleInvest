@@ -39,6 +39,11 @@ allowed_origins = [
     for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
     if origin.strip()
 ]
+frontend_host = os.getenv("FRONTEND_HOST", "").strip()
+if frontend_host:
+    allowed_origins.append(
+        frontend_host if frontend_host.startswith(("http://", "https://")) else f"https://{frontend_host}"
+    )
 
 app.add_middleware(
     CORSMiddleware,
