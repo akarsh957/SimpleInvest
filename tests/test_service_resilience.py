@@ -21,10 +21,14 @@ from backend.app.services.ai_engine import (
         ("llama-3.1-8b-instant", DEFAULT_GROQ_MODEL),
     ],
 )
-def test_groq_model_uses_supported_model(configured_model, expected_model, monkeypatch):
+def test_groq_model_uses_supported_model(
+    configured_model, expected_model, monkeypatch, caplog
+):
     monkeypatch.setattr(settings, "GROQ_MODEL", configured_model)
 
     assert AIEngineService().model == expected_model
+    if configured_model.startswith("llama-"):
+        assert "Unsupported GROQ_MODEL" in caplog.text
 
 
 def test_growth_metrics_are_rate_limited_and_cached(monkeypatch):

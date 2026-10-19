@@ -35,7 +35,15 @@ class AIEngineService:
     def __init__(self):
         self.api_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else None
         raw_model = (settings.GROQ_MODEL or DEFAULT_GROQ_MODEL).strip().replace("\r", "").replace("\n", "").replace('"', '').replace("'", "")
-        self.model = raw_model if raw_model in SUPPORTED_GROQ_MODELS else DEFAULT_GROQ_MODEL
+        if raw_model in SUPPORTED_GROQ_MODELS:
+            self.model = raw_model
+        else:
+            self.model = DEFAULT_GROQ_MODEL
+            logger.warning(
+                "Unsupported GROQ_MODEL %r; using supported model %s",
+                raw_model,
+                self.model,
+            )
         self.temperature = 0.2
         self._async_client = None
 
