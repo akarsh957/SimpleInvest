@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api", tags=["Asset Analysis"])
     status_code=status.HTTP_200_OK,
     summary="Analyze individual asset in plain English",
     description=(
-        "Pulls real-time asset metrics via yfinance for any global or Indian ticker "
+        "Pulls real-time asset quotes via Twelve Data for supported global or Indian tickers "
         "(e.g., AAPL, MSFT, TCS.NS, RELIANCE.NS) and translates them using Groq LLM "
         "into jargon-free, beginner-friendly explanations."
     ),
@@ -28,7 +28,7 @@ async def analyze_asset(payload: AssetAnalysisRequest) -> AssetAnalysisResponse:
     """
     Endpoint logic:
     1. Extract ticker from request body.
-    2. Pull asset metrics using yfinance via MarketDataService.
+    2. Pull asset quote metrics using Twelve Data via MarketDataService.
     3. Send raw metrics to Groq AI engine for plain-English translation.
     4. Return strict structured JSON response.
     """
@@ -36,7 +36,7 @@ async def analyze_asset(payload: AssetAnalysisRequest) -> AssetAnalysisResponse:
         ticker = payload.ticker.strip().upper()
         logger.info(f"Received asset analysis request for ticker: {ticker}")
 
-        # Step 1: Fetch data from yfinance
+        # Step 1: Fetch quote metrics from Twelve Data
         metrics = await MarketDataService.fetch_asset_metrics(ticker)
 
         # Step 2: Translate via Groq AI Layer

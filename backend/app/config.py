@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     """
     GROQ_API_KEY: Optional[str] = None
     GROQ_MODEL: str = "openai/gpt-oss-120b"
+    TWELVE_DATA_API_KEY: Optional[str] = None
     ENVIRONMENT: str = "development"
     PORT: int = 8000
     HOST: str = "0.0.0.0"

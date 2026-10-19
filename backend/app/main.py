@@ -29,7 +29,7 @@ app = FastAPI(
     title="SimpleInvest Core Engine API",
     description=(
         "Zero-cost financial analytics platform translating complex stock and portfolio metrics "
-        "into plain-English, jargon-free explanations using Groq (GPT-OSS) and real-time yfinance market data."
+        "into plain-English, jargon-free explanations using Groq (GPT-OSS) and real-time Twelve Data market data."
     ),
     version="1.0.0",
 )

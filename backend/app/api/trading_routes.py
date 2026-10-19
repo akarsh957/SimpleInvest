@@ -10,7 +10,6 @@ try:
         MomentumPredictionResponse,
     )
     from backend.app.services.twelve_data import TwelveDataService
-    from backend.app.services.market_data import MarketDataService
     from backend.app.services.ai_engine import ai_engine
     from backend.app.db import get_authenticated_supabase_client, supabase
 except ImportError:
@@ -21,7 +20,6 @@ except ImportError:
         MomentumPredictionResponse,
     )
     from app.services.twelve_data import TwelveDataService
-    from app.services.market_data import MarketDataService
     from app.services.ai_engine import ai_engine
     from app.db import get_authenticated_supabase_client, supabase
 
@@ -51,20 +49,24 @@ async def execute_trade(
     try:
         user_supabase = get_authenticated_supabase_client(access_token)
 
-        # 1. Get real-time price from Twelve Data, with yfinance fallback
-        current_price = None
+        # 1. Get the live quote from Twelve Data
         try:
             quote_data = await TwelveDataService.get_realtime_quote(request.ticker)
-            if quote_data and 'price' in quote_data:
-                current_price = float(quote_data['price'])
-        except Exception as q_err:
-            logger.warning(f"TwelveData quote failed for {request.ticker}: {q_err}. Falling back to yfinance.")
-            
-        if current_price is None:
-            try:
-                current_price = await MarketDataService.fetch_current_price(request.ticker)
-            except Exception as yf_err:
-                logger.error(f"yfinance fallback failed for {request.ticker}: {yf_err}")
+            current_price = float(
+                (quote_data or {}).get("price")
+                or (quote_data or {}).get("close")
+                or 0
+            )
+        except Exception as quote_error:
+            logger.error(
+                "Twelve Data quote failed for %s: %s",
+                request.ticker,
+                quote_error,
+            )
+            raise HTTPException(
+                status_code=502,
+                detail=f"Market data provider could not quote {request.ticker}",
+            ) from quote_error
 
         if current_price is None or current_price <= 0:
             raise HTTPException(status_code=400, detail=f"Could not fetch realtime quote for {request.ticker}")

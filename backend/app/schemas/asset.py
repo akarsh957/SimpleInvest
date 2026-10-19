@@ -23,7 +23,7 @@ class AssetAnalysisRequest(BaseModel):
 
 class AssetMetrics(BaseModel):
     """
-    Raw market metrics fetched from yfinance.
+    Market metrics normalized from the configured market-data provider.
     """
     ticker: str
     company_name: str

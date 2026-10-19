@@ -38,7 +38,7 @@ router = APIRouter(prefix="/api", tags=["Market & AI Intelligence"])
 async def get_market_trends() -> MarketTrendsResponse:
     """
     Endpoint logic:
-    1. Fetch real-time market data & sparklines via yfinance.
+    1. Fetch real-time market data & sparklines via Twelve Data.
     2. Categorize into all_items, top gainers, top losers, and volume leaders.
     3. Return clean structured JSON with safe fallback handling.
     """

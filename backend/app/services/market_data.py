@@ -1,14 +1,11 @@
 import asyncio
-import functools
 import logging
 import math
 import random
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import Callable, Dict, Any, Optional, List
-import yfinance as yf
+from typing import Dict, Any, Optional, List
 
 try:
     from backend.app.schemas.asset import AssetMetrics
@@ -19,6 +16,7 @@ try:
         AIForecastInsights,
         StockForecastResponse,
     )
+    from backend.app.services.twelve_data import TwelveDataService
 except ImportError:
     from app.schemas.asset import AssetMetrics
     from app.schemas.market import (
@@ -28,32 +26,9 @@ except ImportError:
         AIForecastInsights,
         StockForecastResponse,
     )
+    from app.services.twelve_data import TwelveDataService
 
 logger = logging.getLogger(__name__)
-
-_YFINANCE_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="yfinance")
-_YFINANCE_REQUEST_INTERVAL = 0.25
-_YFINANCE_NEXT_REQUEST_AT = 0.0
-_YFINANCE_REQUEST_LOCK = threading.Lock()
-
-
-async def _run_yfinance(func: Callable[..., Any], *args: Any) -> Any:
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        _YFINANCE_EXECUTOR,
-        functools.partial(_call_yfinance, func, *args),
-    )
-
-
-def _call_yfinance(func: Callable[..., Any], *args: Any) -> Any:
-    global _YFINANCE_NEXT_REQUEST_AT
-    with _YFINANCE_REQUEST_LOCK:
-        delay = _YFINANCE_NEXT_REQUEST_AT - time.monotonic()
-        if delay > 0:
-            time.sleep(delay)
-        _YFINANCE_NEXT_REQUEST_AT = time.monotonic() + _YFINANCE_REQUEST_INTERVAL
-    return func(*args)
-
 
 WATCHLIST_TICKERS = [
     'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'BRK-B', 'TSLA', 'LLY', 'AVGO',
@@ -98,56 +73,23 @@ for t in WATCHLIST_TICKERS:
 
 _TRENDS_CACHE = None
 _TRENDS_CACHE_TIME = 0.0
-CACHE_TTL = 600  # 10 minutes cache for 100 tickers to avoid yfinance rate limits
+CACHE_TTL = 600
 _GROWTH_METRICS_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
 _GROWTH_METRICS_CACHE_LOCK = threading.Lock()
 
 
 class MarketDataService:
     """
-    Service to fetch real-time and fundamental market data using yfinance asynchronously.
+    Service to fetch market data from Twelve Data asynchronously.
     """
-
-    @staticmethod
-    def _fetch_current_price_sync(ticker_symbol: str) -> Optional[float]:
-        ticker = yf.Ticker(ticker_symbol)
-        fast_info = getattr(ticker, "fast_info", None)
-        last_price = getattr(fast_info, "last_price", None) if fast_info else None
-        if last_price:
-            return float(last_price)
-
-        history = ticker.history(period="1d")
-        if not history.empty:
-            return float(history["Close"].iloc[-1])
-        return None
 
     @classmethod
     async def fetch_current_price(cls, ticker_symbol: str) -> Optional[float]:
-        return await _run_yfinance(cls._fetch_current_price_sync, ticker_symbol)
-
-    @staticmethod
-    def _fetch_ticker_info_sync(ticker_symbol: str) -> Dict[str, Any]:
-        """
-        Synchronous fetch wrapper for yfinance ticker info.
-        """
-        logger.info(f"Fetching yfinance data for ticker: {ticker_symbol}")
-        ticker = yf.Ticker(ticker_symbol)
-        
-        try:
-            info = ticker.info
-        except Exception as e:
-            logger.warning(f"Error accessing info for {ticker_symbol}: {e}")
-            info = {}
-
-        if not info or len(info) < 3:
-            try:
-                hist = ticker.history(period="5d")
-                if hist.empty:
-                    raise ValueError(f"Ticker symbol '{ticker_symbol}' not found or has no market data.")
-            except Exception as e:
-                raise ValueError(f"Unable to retrieve data for ticker '{ticker_symbol}'. Error: {str(e)}")
-
-        return info
+        quote = await TwelveDataService.get_realtime_quote(ticker_symbol)
+        if not quote:
+            return None
+        price = quote.get("price") or quote.get("close")
+        return float(price) if price is not None else None
 
     @classmethod
     async def fetch_asset_metrics(cls, ticker_symbol: str) -> AssetMetrics:
@@ -155,57 +97,30 @@ class MarketDataService:
         Asynchronously fetch and normalize asset metrics for any global or Indian ticker.
         """
         normalized_ticker = ticker_symbol.strip().upper()
-        
         try:
-            info = await _run_yfinance(cls._fetch_ticker_info_sync, normalized_ticker)
+            info = await TwelveDataService.get_realtime_quote(normalized_ticker) or {}
         except Exception as err:
-            logger.error(f"Market data fetch error for {normalized_ticker}: {err}")
+            logger.warning("Twelve Data quote failed for %s: %s", normalized_ticker, err)
             return cls._generate_fallback_metrics(normalized_ticker, str(err))
 
-        company_name = (
-            info.get("shortName")
-            or info.get("longName")
-            or info.get("displayName")
-            or normalized_ticker
+        current_price = info.get("price") or info.get("close")
+        if current_price is None:
+            logger.warning("Twelve Data returned no quote price for %s", normalized_ticker)
+            return cls._generate_fallback_metrics(
+                normalized_ticker,
+                "Twelve Data returned no quote price.",
+            )
+
+        company_name = info.get("name") or normalized_ticker
+        sector = COMPANIES_META.get(
+            normalized_ticker,
+            {"sector": "General Market"},
+        )["sector"]
+        currency = info.get(
+            "currency",
+            "INR" if normalized_ticker.endswith((".NS", ".BO")) else "USD",
         )
-
-        sector = (
-            info.get("sector")
-            or info.get("industry")
-            or info.get("category")
-            or "General Market"
-        )
-
-        current_price = (
-            info.get("currentPrice")
-            or info.get("regularMarketPrice")
-            or info.get("navPrice")
-            or info.get("previousClose")
-            or info.get("open")
-        )
-
-        if not current_price or current_price <= 0:
-            try:
-                def get_hist_price():
-                    t = yf.Ticker(normalized_ticker)
-                    h = t.history(period="1d")
-                    if not h.empty:
-                        return float(h["Close"].iloc[-1])
-                    return 100.0
-                current_price = await _run_yfinance(get_hist_price)
-            except Exception:
-                current_price = 100.0
-
-        currency = info.get("currency", "INR" if normalized_ticker.endswith(".NS") or normalized_ticker.endswith(".BO") else "USD")
-        trailing_pe = info.get("trailingPE") or info.get("forwardPE")
-        beta = info.get("beta")
-        fifty_two_high = info.get("fiftyTwoWeekHigh")
-        fifty_two_low = info.get("fiftyTwoWeekLow")
-        dividend_yield = info.get("dividendYield")
-        if dividend_yield and dividend_yield > 1.0:
-            dividend_yield = dividend_yield / 100.0
-
-        market_cap = info.get("marketCap")
+        fifty_two_week = info.get("fifty_two_week") or {}
 
         return AssetMetrics(
             ticker=normalized_ticker,
@@ -213,13 +128,21 @@ class MarketDataService:
             sector=sector,
             current_price=round(float(current_price), 2),
             currency=currency,
-            trailing_pe=round(float(trailing_pe), 2) if trailing_pe is not None else None,
-            beta=round(float(beta), 2) if beta is not None else None,
-            fifty_two_week_high=round(float(fifty_two_high), 2) if fifty_two_high is not None else None,
-            fifty_two_week_low=round(float(fifty_two_low), 2) if fifty_two_low is not None else None,
-            dividend_yield=round(float(dividend_yield), 4) if dividend_yield is not None else None,
-            market_cap=float(market_cap) if market_cap is not None else None,
+            fifty_two_week_high=cls._as_optional_float(fifty_two_week.get("high")),
+            fifty_two_week_low=cls._as_optional_float(fifty_two_week.get("low")),
         )
+
+    @staticmethod
+    def _as_optional_float(value: Any) -> Optional[float]:
+        try:
+            if value is None:
+                return None
+            normalized = str(value).strip().replace(",", "")
+            if normalized.endswith("%"):
+                normalized = normalized[:-1].strip()
+            return float(normalized)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _format_volume(vol: int, currency: str) -> str:
@@ -232,33 +155,39 @@ class MarketDataService:
         return str(vol)
 
     @classmethod
-    def _fetch_single_trend_item_sync(cls, ticker_symbol: str) -> MarketTrendItem:
+    async def _fetch_single_trend_item(cls, ticker_symbol: str) -> MarketTrendItem:
         meta = COMPANIES_META.get(ticker_symbol, {'name': ticker_symbol, 'sector': 'General Market'})
         is_indian = ticker_symbol.endswith(".NS") or ticker_symbol.endswith(".BO")
         currency = "INR" if is_indian else "USD"
 
         try:
-            ticker = yf.Ticker(ticker_symbol)
-            hist = ticker.history(period="10d")
-
-            if not hist.empty:
-                prices = [round(float(p), 2) for p in hist["Close"].tolist()][-7:]
-                current_price = prices[-1]
-                prev_close = prices[-2] if len(prices) >= 2 else None
-            else:
-                prices = [100.0] * 7
-                current_price = None
-                prev_close = None
+            history = await TwelveDataService.get_historical_charts(
+                ticker_symbol,
+                interval="1day",
+                outputsize=7,
+            )
+            values = history.get("values", []) if history else []
+            ordered_values = sorted(
+                values,
+                key=lambda item: item.get("datetime", ""),
+            )
+            prices = [
+                round(float(item["close"]), 2)
+                for item in ordered_values
+                if item.get("close") is not None
+            ][-7:]
+            current_price = prices[-1] if prices else None
+            prev_close = prices[-2] if len(prices) >= 2 else None
 
             if not current_price or current_price <= 0:
-                current_price = 100.0
+                raise ValueError(f"Twelve Data returned no history for {ticker_symbol}")
             if not prev_close or prev_close <= 0:
                 prev_close = current_price * 0.98
 
             change = current_price - prev_close
             change_pct = (change / prev_close) * 100.0
 
-            volume = int(hist["Volume"].iloc[-1]) if not hist.empty else 5000000
+            volume = int(ordered_values[-1].get("volume") or 0) if ordered_values else 0
             fifty_two_high = round(current_price * 1.15, 2)
             fifty_two_low = round(current_price * 0.85, 2)
             company_name = meta['name']
@@ -279,7 +208,11 @@ class MarketDataService:
                 sparkline=prices,
             )
         except Exception as e:
-            logger.warning(f"Error fetching real-time trend for {ticker_symbol}: {e}. Using fallback.")
+            logger.warning(
+                "Twelve Data trend fetch failed for %s: %s. Using fallback.",
+                ticker_symbol,
+                e,
+            )
             return cls._generate_fallback_trend_item(ticker_symbol)
 
     @classmethod
@@ -291,10 +224,18 @@ class MarketDataService:
         if _TRENDS_CACHE and (time.time() - _TRENDS_CACHE_TIME < CACHE_TTL):
             return _TRENDS_CACHE
 
-        tasks = [
-            _run_yfinance(cls._fetch_single_trend_item_sync, ticker)
-            for ticker in WATCHLIST_TICKERS
-        ]
+        if not TwelveDataService.is_configured():
+            logger.warning("Twelve Data is not configured; returning market trend fallbacks.")
+            items = [cls._generate_fallback_trend_item(t) for t in WATCHLIST_TICKERS]
+            return cls._build_market_trends_response(items)
+
+        semaphore = asyncio.Semaphore(4)
+
+        async def fetch_trend(ticker: str) -> MarketTrendItem:
+            async with semaphore:
+                return await cls._fetch_single_trend_item(ticker)
+
+        tasks = [fetch_trend(ticker) for ticker in WATCHLIST_TICKERS]
         
         try:
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -308,7 +249,15 @@ class MarketDataService:
             logger.error(f"Global market trends fetch failed: {e}. Returning complete fallback payload.")
             items = [cls._generate_fallback_trend_item(t) for t in WATCHLIST_TICKERS]
 
-        # Categorize
+        return cls._build_market_trends_response(items)
+
+    @classmethod
+    def _build_market_trends_response(
+        cls,
+        items: List[MarketTrendItem],
+    ) -> MarketTrendsResponse:
+        global _TRENDS_CACHE, _TRENDS_CACHE_TIME
+
         gainers = sorted([i for i in items if i.change_percent >= 0], key=lambda x: x.change_percent, reverse=True)
         losers = sorted([i for i in items if i.change_percent < 0], key=lambda x: x.change_percent)
         if not gainers and items:
@@ -373,39 +322,61 @@ class MarketDataService:
         )
 
     @classmethod
-    def _fetch_growth_metrics_single_sync(cls, ticker_symbol: str) -> Dict[str, Any]:
+    def _find_statistic(cls, payload: Any, *candidate_keys: str) -> Any:
+        normalized_candidates = {
+            key.lower().replace("_", "").replace("-", "").replace(" ", "")
+            for key in candidate_keys
+        }
+        if isinstance(payload, dict):
+            for key, value in payload.items():
+                normalized_key = key.lower().replace("_", "").replace("-", "").replace(" ", "")
+                if normalized_key in normalized_candidates:
+                    if isinstance(value, dict):
+                        value = value.get("value") or value.get("current")
+                    if not isinstance(value, (dict, list)):
+                        return value
+            for value in payload.values():
+                result = cls._find_statistic(value, *candidate_keys)
+                if result is not None:
+                    return result
+        elif isinstance(payload, list):
+            for value in payload:
+                result = cls._find_statistic(value, *candidate_keys)
+                if result is not None:
+                    return result
+        return None
+
+    @classmethod
+    async def _fetch_growth_metrics_single(cls, ticker_symbol: str) -> Dict[str, Any]:
         meta = COMPANIES_META.get(ticker_symbol, {'name': ticker_symbol, 'sector': 'Technology'})
         try:
-            t = yf.Ticker(ticker_symbol)
-            info = t.info or {}
-            if not info:
-                raise ValueError(f"Yahoo returned no fundamentals for {ticker_symbol}")
-
-            fwd_pe = info.get("forwardPE") or info.get("trailingPE")
-            peg_ratio = info.get("pegRatio")
-            rev_growth = info.get("revenueGrowth")
-            debt_to_equity = info.get("debtToEquity")
+            stats = await TwelveDataService.get_statistics(ticker_symbol) or {}
+            fwd_pe = cls._find_statistic(stats, "forward_pe", "forward_pe_ratio", "trailing_pe", "pe_ratio")
+            peg_ratio = cls._find_statistic(stats, "peg_ratio", "peg_ratio_ttm")
+            rev_growth = cls._find_statistic(stats, "revenue_growth", "revenue_growth_ttm", "quarterly_revenue_growth")
+            debt_to_equity = cls._find_statistic(stats, "debt_to_equity", "debt_to_equity_ttm")
+            market_cap = cls._find_statistic(stats, "market_capitalization", "market_cap")
 
             return {
                 "ticker": ticker_symbol,
-                "company_name": info.get("shortName") or info.get("longName") or meta['name'],
-                "sector": info.get("sector") or meta['sector'],
-                "forward_pe": round(float(fwd_pe), 2) if fwd_pe is not None else None,
-                "peg_ratio": round(float(peg_ratio), 2) if peg_ratio is not None else None,
-                "quarterly_revenue_growth_pct": round(float(rev_growth) * 100.0, 1) if rev_growth is not None else None,
-                "debt_to_equity": round(float(debt_to_equity), 2) if debt_to_equity is not None else None,
-                "market_cap": info.get("marketCap"),
+                "company_name": cls._find_statistic(stats, "name") or meta['name'],
+                "sector": cls._find_statistic(stats, "sector") or meta['sector'],
+                "forward_pe": cls._as_optional_float(fwd_pe),
+                "peg_ratio": cls._as_optional_float(peg_ratio),
+                "quarterly_revenue_growth_pct": cls._as_optional_float(rev_growth),
+                "debt_to_equity": cls._as_optional_float(debt_to_equity),
+                "market_cap": cls._as_optional_float(market_cap),
             }
         except Exception as e:
-            logger.warning(f"Failed to fetch growth metrics for {ticker_symbol}: {e}")
+            logger.warning("Twelve Data statistics failed for %s: %s", ticker_symbol, e)
             return {
                 "ticker": ticker_symbol,
                 "company_name": meta['name'],
                 "sector": meta['sector'],
-                "forward_pe": 28.5,
-                "peg_ratio": 1.2,
-                "quarterly_revenue_growth_pct": 35.0,
-                "debt_to_equity": 45.0,
+                "forward_pe": None,
+                "peg_ratio": None,
+                "quarterly_revenue_growth_pct": None,
+                "debt_to_equity": None,
             }
 
     @classmethod
@@ -425,13 +396,31 @@ class MarketDataService:
         if len(candidates) > 20:
             candidates = random.sample(candidates, 20)
 
+        if not TwelveDataService.is_configured():
+            logger.warning("Twelve Data is not configured; growth fundamentals are unavailable.")
+            return [
+                {
+                    "ticker": ticker,
+                    "company_name": COMPANIES_META.get(ticker, {}).get("name", ticker),
+                    "sector": COMPANIES_META.get(ticker, {}).get("sector", "General"),
+                    "forward_pe": None,
+                    "peg_ratio": None,
+                    "quarterly_revenue_growth_pct": None,
+                    "debt_to_equity": None,
+                }
+                for ticker in candidates
+            ]
+
+        semaphore = asyncio.Semaphore(4)
+
         async def fetch_metrics(ticker: str) -> Dict[str, Any]:
             with _GROWTH_METRICS_CACHE_LOCK:
                 cached = _GROWTH_METRICS_CACHE.get(ticker)
                 if cached and time.time() - cached[0] < CACHE_TTL:
                     return cached[1]
 
-            metrics = await _run_yfinance(cls._fetch_growth_metrics_single_sync, ticker)
+            async with semaphore:
+                metrics = await cls._fetch_growth_metrics_single(ticker)
             with _GROWTH_METRICS_CACHE_LOCK:
                 _GROWTH_METRICS_CACHE[ticker] = (time.time(), metrics)
             return metrics
@@ -449,10 +438,10 @@ class MarketDataService:
                     "ticker": ticker,
                     "company_name": meta['name'],
                     "sector": meta['sector'],
-                    "forward_pe": 25.0,
-                    "peg_ratio": 1.1,
-                    "quarterly_revenue_growth_pct": 20.0,
-                    "debt_to_equity": 30.0,
+                    "forward_pe": None,
+                    "peg_ratio": None,
+                    "quarterly_revenue_growth_pct": None,
+                    "debt_to_equity": None,
                 })
         return output
 
@@ -518,41 +507,56 @@ class MarketDataService:
         except ImportError:
             from app.services.ai_engine import ai_engine
 
-        # Run yfinance fetch in thread pool
+        period_map = {
+            "1mo": ("1day", 30),
+            "3mo": ("1day", 90),
+            "6mo": ("1day", 180),
+            "1y": ("1day", 365),
+            "5y": ("1week", 260),
+        }
+        interval, outputsize = period_map.get(timeframe, ("1day", 180))
+        history_values = []
+        quote_data = {}
+        if TwelveDataService.is_configured():
+            try:
+                history_data = await TwelveDataService.get_historical_charts(
+                    normalized_ticker,
+                    interval=interval,
+                    outputsize=outputsize,
+                )
+                history_values = history_data.get("values", []) if history_data else []
+            except Exception as err:
+                logger.warning(
+                    "Twelve Data history failed for %s: %s.",
+                    normalized_ticker,
+                    err,
+                )
+            try:
+                quote_data = await TwelveDataService.get_realtime_quote(normalized_ticker) or {}
+            except Exception as err:
+                logger.warning("Twelve Data quote failed for %s: %s", normalized_ticker, err)
+
         def _fetch_sync():
-            period_map = {
-                "1mo": ("1mo", "1d"),
-                "3mo": ("3mo", "1d"),
-                "6mo": ("6mo", "1d"),
-                "1y": ("1y", "1d"),
-                "5y": ("5y", "1wk"),
-            }
-            period, interval = period_map.get(timeframe, ("6mo", "1d"))
-            
             meta = COMPANIES_META.get(normalized_ticker, {'name': normalized_ticker, 'sector': 'Global Asset'})
             is_indian = normalized_ticker.endswith(".NS") or normalized_ticker.endswith(".BO")
             currency = "INR" if is_indian else "USD"
 
-            try:
-                t = yf.Ticker(normalized_ticker)
-                info = t.info or {}
-                hist = t.history(period=period, interval=interval)
-            except Exception as e:
-                logger.warning(f"Error calling yfinance for {normalized_ticker}: {e}")
-                info = {}
-                hist = None
-
             # Company details
-            company_name = info.get("shortName") or info.get("longName") or meta['name']
-            sector = info.get("sector") or meta['sector']
+            company_name = quote_data.get("name") or meta['name']
+            sector = meta['sector']
             
-            # Extract historical items
             raw_points = []
-            if hist is not None and not hist.empty:
-                for idx, row in hist.iterrows():
-                    close_val = float(row["Close"])
-                    vol_val = int(row.get("Volume", 0))
-                    dt_obj = idx.to_pydatetime() if hasattr(idx, "to_pydatetime") else idx
+            for item in sorted(
+                history_values,
+                key=lambda value: value.get("datetime", ""),
+            ):
+                try:
+                    date_value = item["datetime"]
+                    dt_obj = datetime.fromisoformat(
+                        date_value.replace("Z", "+00:00")
+                    )
+                    close_val = float(item["close"])
+                    vol_val = int(float(item.get("volume") or 0))
                     raw_points.append({
                         "dt": dt_obj,
                         "date": dt_obj.strftime("%Y-%m-%d"),
@@ -560,10 +564,20 @@ class MarketDataService:
                         "close": round(close_val, 2),
                         "volume": vol_val
                     })
+                except (KeyError, TypeError, ValueError):
+                    logger.warning(
+                        "Skipping malformed Twelve Data history item for %s",
+                        normalized_ticker,
+                    )
 
             # If empty or too few points, generate high-fidelity synthetic past
             if len(raw_points) < 5:
-                base_p = float(info.get("currentPrice") or info.get("regularMarketPrice") or 100.0)
+                quote_price = (
+                    quote_data.get("price")
+                    or quote_data.get("close")
+                    or quote_data.get("previous_close")
+                )
+                base_p = float(quote_price or 100.0)
                 if base_p <= 0:
                     base_p = 100.0 if not is_indian else 1500.0
                 
@@ -594,11 +608,12 @@ class MarketDataService:
             change_pct = round((change / prev_price) * 100.0, 2) if prev_price > 0 else 0.0
 
             closes = [p["close"] for p in raw_points]
-            fifty_two_low = float(info.get("fiftyTwoWeekLow") or min(closes) * 0.95)
-            fifty_two_high = float(info.get("fiftyTwoWeekHigh") or max(closes) * 1.05)
-            pe_ratio = float(info.get("trailingPE") or info.get("forwardPE") or 24.5)
-            beta = float(info.get("beta") or 1.05)
-            vol_formatted = cls._format_volume(int(info.get("volume") or raw_points[-1]["volume"]), currency)
+            fifty_two_week = quote_data.get("fifty_two_week") or {}
+            fifty_two_low = float(fifty_two_week.get("low") or min(closes) * 0.95)
+            fifty_two_high = float(fifty_two_week.get("high") or max(closes) * 1.05)
+            pe_ratio = None
+            beta = None
+            vol_formatted = cls._format_volume(raw_points[-1]["volume"], currency)
 
             # Calculate 20-period Simple Moving Average
             chart_items: List[ChartPoint] = []
@@ -647,7 +662,7 @@ class MarketDataService:
                 "recent_momentum": recent_momentum
             }
 
-        data_dict = await _run_yfinance(_fetch_sync)
+        data_dict = _fetch_sync()
 
         # Generate AI insights
         ai_insights = await ai_engine.generate_stock_forecast_insights(

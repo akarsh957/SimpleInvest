@@ -24,7 +24,7 @@ SimpleInvest bridges this gap with an authentic **editorial financial terminal a
 
 The platform uses a modern decoupled architecture:
 1. **Frontend Presentation & SSR Layer**: Next.js 15 with React Server Components, TypeScript, Tailwind CSS, Recharts, and Lucide icons.
-2. **Backend Microservice & Analytics Engine**: FastAPI (Python 3.11), Pydantic v2 schemas, yfinance, and Twelve Data pipelines.
+2. **Backend Microservice & Analytics Engine**: FastAPI (Python 3.11), Pydantic v2 schemas, and the Twelve Data market-data pipeline.
 3. **AI Intelligence Engine**: Groq SDK with GPT-OSS 120B generating strict JSON outputs.
 4. **Data Persistence & Real-Time Sync**: Supabase PostgreSQL with SSR Cookie Auth, Row-Level Security (RLS), and database trigger functions for order processing.
 
@@ -51,14 +51,13 @@ graph TD
 
     subgraph FastAPI ["FastAPI Analytics Microservice (Port 8000)"]
         API["FastAPI REST Routes<br/>/api/analyze-asset<br/>/api/audit-portfolio<br/>/api/market/trends<br/>/api/market/stock-forecast<br/>/api/ai/growth-scout<br/>/api/trade/execute"]
-        DataSvc["MarketDataService<br/>- yfinance (Live NYSE & NSE)<br/>- Twelve Data (Momentum)"]
+        DataSvc["MarketDataService<br/>- Twelve Data quotes & history<br/>- Local fallback analytics"]
         AIEngine["AIEngineService<br/>- Groq Async Client<br/>- GPT-OSS 120B<br/>- Rule-based Fallback Engines"]
     end
 
     subgraph External ["External Providers"]
         Groq["Groq Cloud API<br/>(GPT-OSS 120B)"]
-        YF["Yahoo Finance API<br/>(Quotes, Historical OHLCV)"]
-        TD["Twelve Data API<br/>(Real-Time Technicals)"]
+        TD["Twelve Data API<br/>(Quotes, History & Fundamentals)"]
     end
 
     UI --> Nav
@@ -82,7 +81,6 @@ graph TD
     API --> DataSvc
     API --> AIEngine
 
-    DataSvc --> YF
     DataSvc --> TD
     AIEngine --> Groq
 ```
@@ -143,10 +141,10 @@ backend/
 │   │   └── trading_routes.py     # Paper trading order placement & momentum
 │   ├── services/
 │   │   ├── ai_engine.py          # Groq SDK client (GPT-OSS)
-│   │   ├── market_data.py        # yfinance pipeline & 52W/sparkline calculations
+│   │   ├── market_data.py        # Twelve Data pipeline & sparkline calculations
 │   │   └── twelve_data.py        # Twelve Data API client for technicals
 │   ├── schemas/                  # Pydantic v2 data models & validation
-│   ├── config.py                 # Application settings (GROQ_API_KEY, GROQ_MODEL)
+│   ├── config.py                 # Application settings (Groq and Twelve Data keys)
 │   ├── db.py                     # Database connection helpers
 │   └── main.py                   # FastAPI app entry point & CORS configuration
 ```
