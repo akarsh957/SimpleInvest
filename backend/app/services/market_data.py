@@ -1,9 +1,13 @@
 import asyncio
+import functools
 import logging
 import math
 import random
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
+from typing import Callable, Dict, Any, Optional, List
 import yfinance as yf
 
 try:
@@ -26,6 +30,30 @@ except ImportError:
     )
 
 logger = logging.getLogger(__name__)
+
+_YFINANCE_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="yfinance")
+_YFINANCE_REQUEST_INTERVAL = 0.25
+_YFINANCE_NEXT_REQUEST_AT = 0.0
+_YFINANCE_REQUEST_LOCK = threading.Lock()
+
+
+async def _run_yfinance(func: Callable[..., Any], *args: Any) -> Any:
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        _YFINANCE_EXECUTOR,
+        functools.partial(_call_yfinance, func, *args),
+    )
+
+
+def _call_yfinance(func: Callable[..., Any], *args: Any) -> Any:
+    global _YFINANCE_NEXT_REQUEST_AT
+    with _YFINANCE_REQUEST_LOCK:
+        delay = _YFINANCE_NEXT_REQUEST_AT - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+        _YFINANCE_NEXT_REQUEST_AT = time.monotonic() + _YFINANCE_REQUEST_INTERVAL
+    return func(*args)
+
 
 WATCHLIST_TICKERS = [
     'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'BRK-B', 'TSLA', 'LLY', 'AVGO',
@@ -68,16 +96,34 @@ for t in WATCHLIST_TICKERS:
         else:
             COMPANIES_META[t] = {'name': t, 'sector': 'US Market'}
 
-import time
 _TRENDS_CACHE = None
 _TRENDS_CACHE_TIME = 0.0
 CACHE_TTL = 600  # 10 minutes cache for 100 tickers to avoid yfinance rate limits
+_GROWTH_METRICS_CACHE: Dict[str, tuple[float, Dict[str, Any]]] = {}
+_GROWTH_METRICS_CACHE_LOCK = threading.Lock()
 
 
 class MarketDataService:
     """
     Service to fetch real-time and fundamental market data using yfinance asynchronously.
     """
+
+    @staticmethod
+    def _fetch_current_price_sync(ticker_symbol: str) -> Optional[float]:
+        ticker = yf.Ticker(ticker_symbol)
+        fast_info = getattr(ticker, "fast_info", None)
+        last_price = getattr(fast_info, "last_price", None) if fast_info else None
+        if last_price:
+            return float(last_price)
+
+        history = ticker.history(period="1d")
+        if not history.empty:
+            return float(history["Close"].iloc[-1])
+        return None
+
+    @classmethod
+    async def fetch_current_price(cls, ticker_symbol: str) -> Optional[float]:
+        return await _run_yfinance(cls._fetch_current_price_sync, ticker_symbol)
 
     @staticmethod
     def _fetch_ticker_info_sync(ticker_symbol: str) -> Dict[str, Any]:
@@ -111,7 +157,7 @@ class MarketDataService:
         normalized_ticker = ticker_symbol.strip().upper()
         
         try:
-            info = await asyncio.to_thread(cls._fetch_ticker_info_sync, normalized_ticker)
+            info = await _run_yfinance(cls._fetch_ticker_info_sync, normalized_ticker)
         except Exception as err:
             logger.error(f"Market data fetch error for {normalized_ticker}: {err}")
             return cls._generate_fallback_metrics(normalized_ticker, str(err))
@@ -146,7 +192,7 @@ class MarketDataService:
                     if not h.empty:
                         return float(h["Close"].iloc[-1])
                     return 100.0
-                current_price = await asyncio.to_thread(get_hist_price)
+                current_price = await _run_yfinance(get_hist_price)
             except Exception:
                 current_price = 100.0
 
@@ -193,25 +239,16 @@ class MarketDataService:
 
         try:
             ticker = yf.Ticker(ticker_symbol)
-            info = ticker.info or {}
             hist = ticker.history(period="10d")
-
-            current_price = (
-                info.get("currentPrice")
-                or info.get("regularMarketPrice")
-                or info.get("previousClose")
-            )
-
-            prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
 
             if not hist.empty:
                 prices = [round(float(p), 2) for p in hist["Close"].tolist()][-7:]
-                if not current_price or current_price <= 0:
-                    current_price = prices[-1]
-                if not prev_close and len(prices) >= 2:
-                    prev_close = prices[-2]
+                current_price = prices[-1]
+                prev_close = prices[-2] if len(prices) >= 2 else None
             else:
                 prices = [100.0] * 7
+                current_price = None
+                prev_close = None
 
             if not current_price or current_price <= 0:
                 current_price = 100.0
@@ -221,11 +258,11 @@ class MarketDataService:
             change = current_price - prev_close
             change_pct = (change / prev_close) * 100.0
 
-            volume = int(info.get("volume") or info.get("regularMarketVolume") or 5000000)
-            fifty_two_high = info.get("fiftyTwoWeekHigh") or round(current_price * 1.15, 2)
-            fifty_two_low = info.get("fiftyTwoWeekLow") or round(current_price * 0.85, 2)
-            company_name = info.get("shortName") or info.get("longName") or meta['name']
-            sector = info.get("sector") or meta['sector']
+            volume = int(hist["Volume"].iloc[-1]) if not hist.empty else 5000000
+            fifty_two_high = round(current_price * 1.15, 2)
+            fifty_two_low = round(current_price * 0.85, 2)
+            company_name = meta['name']
+            sector = meta['sector']
 
             return MarketTrendItem(
                 ticker=ticker_symbol,
@@ -255,7 +292,7 @@ class MarketDataService:
             return _TRENDS_CACHE
 
         tasks = [
-            asyncio.to_thread(cls._fetch_single_trend_item_sync, ticker)
+            _run_yfinance(cls._fetch_single_trend_item_sync, ticker)
             for ticker in WATCHLIST_TICKERS
         ]
         
@@ -341,6 +378,8 @@ class MarketDataService:
         try:
             t = yf.Ticker(ticker_symbol)
             info = t.info or {}
+            if not info:
+                raise ValueError(f"Yahoo returned no fundamentals for {ticker_symbol}")
 
             fwd_pe = info.get("forwardPE") or info.get("trailingPE")
             peg_ratio = info.get("pegRatio")
@@ -386,7 +425,18 @@ class MarketDataService:
         if len(candidates) > 20:
             candidates = random.sample(candidates, 20)
 
-        tasks = [asyncio.to_thread(cls._fetch_growth_metrics_single_sync, t) for t in candidates]
+        async def fetch_metrics(ticker: str) -> Dict[str, Any]:
+            with _GROWTH_METRICS_CACHE_LOCK:
+                cached = _GROWTH_METRICS_CACHE.get(ticker)
+                if cached and time.time() - cached[0] < CACHE_TTL:
+                    return cached[1]
+
+            metrics = await _run_yfinance(cls._fetch_growth_metrics_single_sync, ticker)
+            with _GROWTH_METRICS_CACHE_LOCK:
+                _GROWTH_METRICS_CACHE[ticker] = (time.time(), metrics)
+            return metrics
+
+        tasks = [fetch_metrics(ticker) for ticker in candidates]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         output = []
@@ -597,7 +647,7 @@ class MarketDataService:
                 "recent_momentum": recent_momentum
             }
 
-        data_dict = await asyncio.to_thread(_fetch_sync)
+        data_dict = await _run_yfinance(_fetch_sync)
 
         # Generate AI insights
         ai_insights = await ai_engine.generate_stock_forecast_insights(

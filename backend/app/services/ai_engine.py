@@ -22,17 +22,20 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+SUPPORTED_GROQ_MODELS = {"openai/gpt-oss-20b", "openai/gpt-oss-120b"}
+
 
 class AIEngineService:
     """
-    AI Service powered by Groq SDK (Llama 3.1 8B Instant) translating raw stock and portfolio metrics
+    AI Service powered by Groq SDK (GPT-OSS) translating raw stock and portfolio metrics
     into plain-English, jargon-free insights for ordinary investors.
     """
 
     def __init__(self):
         self.api_key = settings.GROQ_API_KEY.strip() if settings.GROQ_API_KEY else None
-        raw_model = (settings.GROQ_MODEL or "llama-3.3-70b-versatile").strip().replace("\r", "").replace("\n", "").replace('"', '').replace("'", "")
-        self.model = raw_model if raw_model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] else "llama-3.3-70b-versatile"
+        raw_model = (settings.GROQ_MODEL or DEFAULT_GROQ_MODEL).strip().replace("\r", "").replace("\n", "").replace('"', '').replace("'", "")
+        self.model = raw_model if raw_model in SUPPORTED_GROQ_MODELS else DEFAULT_GROQ_MODEL
         self.temperature = 0.2
         self._async_client = None
 
@@ -228,7 +231,7 @@ Return a strict JSON object with these EXACT keys:
         candidates_data: List[Dict[str, Any]],
     ) -> GrowthScoutResponse:
         """
-        Scouts AI-driven growth opportunities using Groq LLM (llama-3.1-8b-instant).
+        Scouts AI-driven growth opportunities using Groq LLM.
         """
         client = self.async_client
         if not client:

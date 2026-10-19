@@ -10,6 +10,7 @@ try:
         MomentumPredictionResponse,
     )
     from backend.app.services.twelve_data import TwelveDataService
+    from backend.app.services.market_data import MarketDataService
     from backend.app.services.ai_engine import ai_engine
     from backend.app.db import get_authenticated_supabase_client, supabase
 except ImportError:
@@ -20,6 +21,7 @@ except ImportError:
         MomentumPredictionResponse,
     )
     from app.services.twelve_data import TwelveDataService
+    from app.services.market_data import MarketDataService
     from app.services.ai_engine import ai_engine
     from app.db import get_authenticated_supabase_client, supabase
 
@@ -60,15 +62,7 @@ async def execute_trade(
             
         if current_price is None:
             try:
-                import yfinance as yf
-                t = yf.Ticker(request.ticker)
-                fast_info = getattr(t, 'fast_info', None)
-                if fast_info and getattr(fast_info, 'last_price', None):
-                    current_price = float(fast_info.last_price)
-                else:
-                    hist = t.history(period="1d")
-                    if not hist.empty:
-                        current_price = float(hist['Close'].iloc[-1])
+                current_price = await MarketDataService.fetch_current_price(request.ticker)
             except Exception as yf_err:
                 logger.error(f"yfinance fallback failed for {request.ticker}: {yf_err}")
 

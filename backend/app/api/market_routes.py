@@ -110,7 +110,7 @@ async def post_stock_forecast(payload: StockForecastRequest) -> StockForecastRes
     summary="AI Growth Opportunity Radar",
     description=(
         "Computes key valuation and velocity metrics (Forward P/E, PEG ratio, Revenue Growth, Debt-to-Equity) "
-        "and feeds them to Groq (Llama 3.1 8B Instant) to generate structured high-growth opportunities."
+        "and feeds them to Groq to generate structured high-growth opportunities."
     ),
 )
 async def growth_scout(payload: GrowthScoutRequest) -> GrowthScoutResponse:

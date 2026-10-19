@@ -1,6 +1,6 @@
 # SimpleInvest — Project Architecture & Complete Technical Documentation
 
-> **SimpleInvest** is an institutional-grade financial intelligence terminal and paper-trading platform engineered for both retail investors and active traders. It translates complex quantitative stock metrics, risk profiles, and macroeconomic stress tests into clear, plain-English insights powered by **Groq LLM (Llama 3.3 70B Versatile)**, **Next.js 15 (App Router)**, **FastAPI**, and **Supabase (PostgreSQL with Row-Level Security)**.
+> **SimpleInvest** is an institutional-grade financial intelligence terminal and paper-trading platform engineered for both retail investors and active traders. It translates complex quantitative stock metrics, risk profiles, and macroeconomic stress tests into clear, plain-English insights powered by **Groq LLM (GPT-OSS 120B)**, **Next.js 15 (App Router)**, **FastAPI**, and **Supabase (PostgreSQL with Row-Level Security)**.
 
 ---
 
@@ -25,7 +25,7 @@ SimpleInvest bridges this gap with an authentic **editorial financial terminal a
 The platform uses a modern decoupled architecture:
 1. **Frontend Presentation & SSR Layer**: Next.js 15 with React Server Components, TypeScript, Tailwind CSS, Recharts, and Lucide icons.
 2. **Backend Microservice & Analytics Engine**: FastAPI (Python 3.11), Pydantic v2 schemas, yfinance, and Twelve Data pipelines.
-3. **AI Intelligence Engine**: Groq SDK with Llama 3.3 70B Versatile generating strict JSON outputs.
+3. **AI Intelligence Engine**: Groq SDK with GPT-OSS 120B generating strict JSON outputs.
 4. **Data Persistence & Real-Time Sync**: Supabase PostgreSQL with SSR Cookie Auth, Row-Level Security (RLS), and database trigger functions for order processing.
 
 ### Architecture Diagram
@@ -52,11 +52,11 @@ graph TD
     subgraph FastAPI ["FastAPI Analytics Microservice (Port 8000)"]
         API["FastAPI REST Routes<br/>/api/analyze-asset<br/>/api/audit-portfolio<br/>/api/market/trends<br/>/api/market/stock-forecast<br/>/api/ai/growth-scout<br/>/api/trade/execute"]
         DataSvc["MarketDataService<br/>- yfinance (Live NYSE & NSE)<br/>- Twelve Data (Momentum)"]
-        AIEngine["AIEngineService<br/>- Groq Async Client<br/>- Llama 3.3 70B Versatile<br/>- Rule-based Fallback Engines"]
+        AIEngine["AIEngineService<br/>- Groq Async Client<br/>- GPT-OSS 120B<br/>- Rule-based Fallback Engines"]
     end
 
     subgraph External ["External Providers"]
-        Groq["Groq Cloud API<br/>(Llama 3.3 70B Versatile)"]
+        Groq["Groq Cloud API<br/>(GPT-OSS 120B)"]
         YF["Yahoo Finance API<br/>(Quotes, Historical OHLCV)"]
         TD["Twelve Data API<br/>(Real-Time Technicals)"]
     end
@@ -142,7 +142,7 @@ backend/
 │   │   ├── portfolio_routes.py   # Full portfolio audit & risk diagnostic
 │   │   └── trading_routes.py     # Paper trading order placement & momentum
 │   ├── services/
-│   │   ├── ai_engine.py          # Groq SDK client (Llama 3.3 70B Versatile)
+│   │   ├── ai_engine.py          # Groq SDK client (GPT-OSS)
 │   │   ├── market_data.py        # yfinance pipeline & 52W/sparkline calculations
 │   │   └── twelve_data.py        # Twelve Data API client for technicals
 │   ├── schemas/                  # Pydantic v2 data models & validation
@@ -159,8 +159,8 @@ backend/
 - `POST /api/ai/growth-scout`: High-conviction growth opportunities filtered by risk preference and sector.
 - `POST /api/trade/execute`: Validates and records paper trade orders against Supabase tables.
 
-#### Groq Model Stability Fix:
-- Addressed 404 model errors on `/api/ai/growth-scout` by ensuring model strings are sanitized (`.strip()`, removal of accidental quotes or newlines) and configured to the active production model `"llama-3.3-70b-versatile"` (with fallback to `"llama-3.1-8b-instant"` and local rule-based fallback engines).
+#### Groq Model Stability:
+- Model strings are sanitized and restricted to supported Groq model IDs. The default is `"openai/gpt-oss-120b"`; `"openai/gpt-oss-20b"` is also supported, with local rule-based fallback engines when Groq is unavailable.
 
 ---
 
@@ -185,7 +185,7 @@ The database layer runs on PostgreSQL with Row-Level Security enabled across all
 ## 4. Summary of Completed Work
 
 1. **Backend Stabilization**:
-   - Fixed Groq model 404 error by setting default to active production model `"llama-3.3-70b-versatile"`.
+   - Migrated the retired Llama model configuration to Groq's recommended replacement, `"openai/gpt-oss-120b"`.
    - Sanitized model strings in `AIEngineService.__init__` and verified `/api/ai/growth-scout` returns clean `200 OK`.
    - Passed all 6 automated pytest test suites in `tests/test_api.py`.
 2. **Global Design System Reset (`globals.css` & `layout.tsx`)**:
@@ -235,7 +235,7 @@ cd "d:\Fintech Project"
 pip install -r requirements.txt
 
 # Verify .env configuration
-# Ensure GROQ_API_KEY is populated and GROQ_MODEL=llama-3.3-70b-versatile
+# Ensure GROQ_API_KEY is populated and GROQ_MODEL=openai/gpt-oss-120b
 
 # Start FastAPI server on port 8000
 uvicorn backend.app.main:app --reload --port 8000
