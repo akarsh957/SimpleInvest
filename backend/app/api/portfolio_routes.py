@@ -62,19 +62,20 @@ async def audit_portfolio(payload: PortfolioAuditRequest) -> PortfolioAuditRespo
         for holding_input, metrics in zip(payload.holdings, metrics_results):
             if isinstance(metrics, Exception):
                 logger.warning(f"Error fetching metrics for {holding_input.ticker}: {metrics}")
-                company_name = holding_input.ticker.replace(".NS", "").replace(".BO", "")
-                sector = "General Industry"
+                metrics = MarketDataService._generate_fallback_metrics(
+                    holding_input.ticker,
+                    str(metrics),
+                )
+
+            company_name = metrics.company_name
+            sector = metrics.sector
+            beta = metrics.beta if metrics.beta is not None else 1.0
+            if beta < 0.8:
+                risk_vibe = "Smooth Ride"
+            elif beta <= 1.25:
                 risk_vibe = "Moderate Bumps"
             else:
-                company_name = metrics.company_name
-                sector = metrics.sector
-                beta = metrics.beta if metrics.beta is not None else 1.0
-                if beta < 0.8:
-                    risk_vibe = "Smooth Ride"
-                elif beta <= 1.25:
-                    risk_vibe = "Moderate Bumps"
-                else:
-                    risk_vibe = "Rollercoaster"
+                risk_vibe = "Rollercoaster"
 
             current_val = holding_input.invested_amount
             sector_totals[sector] = sector_totals.get(sector, 0.0) + holding_input.invested_amount

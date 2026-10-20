@@ -49,6 +49,8 @@ COMPANIES_META = {
     'NVDA': {'name': 'NVIDIA Corporation', 'sector': 'Technology'},
     'AAPL': {'name': 'Apple Inc.', 'sector': 'Technology'},
     'MSFT': {'name': 'Microsoft Corporation', 'sector': 'Technology'},
+    'ACN': {'name': 'Accenture plc', 'sector': 'Technology'},
+    'PG': {'name': 'The Procter & Gamble Company', 'sector': 'Consumer Defensive'},
     'TSLA': {'name': 'Tesla, Inc.', 'sector': 'Consumer Cyclical'},
     'GOOGL': {'name': 'Alphabet Inc.', 'sector': 'Technology'},
     'AMZN': {'name': 'Amazon.com, Inc.', 'sector': 'Consumer Cyclical'},
@@ -61,15 +63,76 @@ COMPANIES_META = {
     'WMT': {'name': 'Walmart Inc.', 'sector': 'Consumer Defensive'},
     'JNJ': {'name': 'Johnson & Johnson', 'sector': 'Healthcare'},
     'DIS': {'name': 'The Walt Disney Company', 'sector': 'Communication Services'},
+    'TCS.NS': {'name': 'Tata Consultancy Services Limited', 'sector': 'Technology'},
+    'INFY.NS': {'name': 'Infosys Limited', 'sector': 'Technology'},
+    'WIPRO.NS': {'name': 'Wipro Limited', 'sector': 'Technology'},
+    'HDFCBANK.NS': {'name': 'HDFC Bank Limited', 'sector': 'Financial Services'},
+    'ICICIBANK.NS': {'name': 'ICICI Bank Limited', 'sector': 'Financial Services'},
+    'AXISBANK.NS': {'name': 'Axis Bank Limited', 'sector': 'Financial Services'},
+    'KOTAKBANK.NS': {'name': 'Kotak Mahindra Bank Limited', 'sector': 'Financial Services'},
+    'SBIN.NS': {'name': 'State Bank of India', 'sector': 'Financial Services'},
+    'BAJFINANCE.NS': {'name': 'Bajaj Finance Limited', 'sector': 'Financial Services'},
+    'BHARTIARTL.NS': {'name': 'Bharti Airtel Limited', 'sector': 'Communication Services'},
+    'RELIANCE.NS': {'name': 'Reliance Industries Limited', 'sector': 'Energy'},
+    'TATAMOTORS.NS': {'name': 'Tata Motors Limited', 'sector': 'Consumer Cyclical'},
+    'MARUTI.NS': {'name': 'Maruti Suzuki India Limited', 'sector': 'Consumer Cyclical'},
+    'ITC.NS': {'name': 'ITC Limited', 'sector': 'Consumer Defensive'},
+    'HINDUNILVR.NS': {'name': 'Hindustan Unilever Limited', 'sector': 'Consumer Defensive'},
+    'NESTLEIND.NS': {'name': 'Nestle India Limited', 'sector': 'Consumer Defensive'},
+    'SUNPHARMA.NS': {'name': 'Sun Pharmaceutical Industries Limited', 'sector': 'Healthcare'},
+    'TITAN.NS': {'name': 'Titan Company Limited', 'sector': 'Consumer Cyclical'},
+    'LT.NS': {'name': 'Larsen & Toubro Limited', 'sector': 'Industrials'},
+    'ULTRACEMCO.NS': {'name': 'UltraTech Cement Limited', 'sector': 'Materials'},
+    'ASIANPAINT.NS': {'name': 'Asian Paints Limited', 'sector': 'Materials'},
 }
 
-# Auto-populate the rest with fallback names/sectors
+# Fill curated watchlist entries with their sector rather than treating an
+# exchange/market as an industry. Unknown symbols remain explicitly unclassified.
+WATCHLIST_SECTORS = {
+    'Technology': {
+        'AVGO', 'ORCL', 'CRM', 'AMD', 'CSCO', 'ACN', 'INTU', 'IBM', 'QCOM',
+        'TXN', 'NOW', 'AMAT', 'LRCX', 'INTC', 'TCS.NS', 'INFY.NS', 'WIPRO.NS',
+    },
+    'Financial Services': {
+        'JPM', 'V', 'MA', 'BAC', 'SPGI', 'AXP', 'GS', 'C', 'BLK', 'MMC', 'CB',
+        'MS', 'PGR', 'HDFCBANK.NS', 'ICICIBANK.NS', 'SBIN.NS', 'BAJFINANCE.NS',
+        'AXISBANK.NS', 'KOTAKBANK.NS',
+    },
+    'Healthcare': {
+        'LLY', 'UNH', 'MRK', 'ABBV', 'TMO', 'ABT', 'ISRG', 'DHR', 'SYK', 'ELV',
+        'MDT', 'BMY', 'PFE', 'JNJ', 'SUNPHARMA.NS',
+    },
+    'Consumer Cyclical': {
+        'TSLA', 'AMZN', 'HD', 'MCD', 'NKE', 'BKNG', 'TJX', 'LOW', 'SBUX', 'UBER',
+        'TATAMOTORS.NS', 'MARUTI.NS', 'TITAN.NS',
+    },
+    'Consumer Defensive': {
+        'WMT', 'PG', 'COST', 'KO', 'PEP', 'PM', 'EL', 'ITC.NS', 'HINDUNILVR.NS',
+        'NESTLEIND.NS',
+    },
+    'Communication Services': {
+        'NFLX', 'DIS', 'VZ', 'T', 'BHARTIARTL.NS',
+    },
+    'Energy': {'XOM', 'CVX', 'COP', 'RELIANCE.NS'},
+    'Industrials': {
+        'GE', 'CAT', 'UNP', 'HON', 'BA', 'UPS', 'RTX', 'LT.NS',
+    },
+    'Materials': {'LIN', 'ULTRACEMCO.NS', 'ASIANPAINT.NS'},
+    'Real Estate': {'PLD'},
+    'Utilities': {'NEE'},
+}
+
+for sector_name, tickers in WATCHLIST_SECTORS.items():
+    for ticker in tickers:
+        metadata = COMPANIES_META.get(ticker)
+        if metadata is None:
+            COMPANIES_META[ticker] = {'name': ticker, 'sector': sector_name}
+        else:
+            metadata['sector'] = sector_name
+
 for t in WATCHLIST_TICKERS:
     if t not in COMPANIES_META:
-        if t.endswith('.NS'):
-            COMPANIES_META[t] = {'name': t.replace('.NS', ''), 'sector': 'Indian Market'}
-        else:
-            COMPANIES_META[t] = {'name': t, 'sector': 'US Market'}
+        COMPANIES_META[t] = {'name': t, 'sector': 'Unclassified'}
 
 _TRENDS_CACHE = None
 _TRENDS_CACHE_TIME = 0.0
@@ -82,6 +145,14 @@ class MarketDataService:
     """
     Service to fetch market data from Twelve Data asynchronously.
     """
+
+    @staticmethod
+    def _company_metadata(ticker_symbol: str) -> Dict[str, str]:
+        normalized_ticker = ticker_symbol.strip().upper()
+        return COMPANIES_META.get(
+            normalized_ticker,
+            {'name': normalized_ticker, 'sector': 'Unclassified'},
+        )
 
     @classmethod
     async def fetch_current_price(cls, ticker_symbol: str) -> Optional[float]:
@@ -111,11 +182,9 @@ class MarketDataService:
                 "Twelve Data returned no quote price.",
             )
 
-        company_name = info.get("name") or normalized_ticker
-        sector = COMPANIES_META.get(
-            normalized_ticker,
-            {"sector": "General Market"},
-        )["sector"]
+        metadata = cls._company_metadata(normalized_ticker)
+        company_name = info.get("name") or metadata["name"]
+        sector = metadata["sector"]
         currency = info.get(
             "currency",
             "INR" if normalized_ticker.endswith((".NS", ".BO")) else "USD",
@@ -156,7 +225,7 @@ class MarketDataService:
 
     @classmethod
     async def _fetch_single_trend_item(cls, ticker_symbol: str) -> MarketTrendItem:
-        meta = COMPANIES_META.get(ticker_symbol, {'name': ticker_symbol, 'sector': 'General Market'})
+        meta = cls._company_metadata(ticker_symbol)
         is_indian = ticker_symbol.endswith(".NS") or ticker_symbol.endswith(".BO")
         currency = "INR" if is_indian else "USD"
 
@@ -279,7 +348,7 @@ class MarketDataService:
 
     @classmethod
     def _generate_fallback_trend_item(cls, ticker_symbol: str) -> MarketTrendItem:
-        meta = COMPANIES_META.get(ticker_symbol, {'name': ticker_symbol, 'sector': 'Technology'})
+        meta = cls._company_metadata(ticker_symbol)
         is_indian = ticker_symbol.endswith(".NS") or ticker_symbol.endswith(".BO")
         
         preset_data = {
@@ -451,33 +520,32 @@ class MarketDataService:
         Generates sensible fallback metrics when data retrieval encounters network issues.
         """
         logger.warning(f"Using fallback data generator for {ticker_symbol} due to: {error_msg}")
-        is_indian = ticker_symbol.endswith(".NS") or ticker_symbol.endswith(".BO")
+        normalized_ticker = ticker_symbol.strip().upper()
+        is_indian = normalized_ticker.endswith(".NS") or normalized_ticker.endswith(".BO")
+        metadata = MarketDataService._company_metadata(normalized_ticker)
         
-        if "TCS" in ticker_symbol or "INFY" in ticker_symbol or "AAPL" in ticker_symbol or "MSFT" in ticker_symbol:
-            sector = "Technology"
+        if metadata["sector"] == "Technology":
             pe = 28.5
             beta = 1.15
             price = 3800.0 if is_indian else 220.0
-        elif "HDFCBANK" in ticker_symbol or "ICICI" in ticker_symbol:
-            sector = "Financial Services"
+        elif metadata["sector"] == "Financial Services":
             pe = 19.2
             beta = 0.95
             price = 1650.0 if is_indian else 190.0
-        elif "RELIANCE" in ticker_symbol:
-            sector = "Energy & Conglomerate"
+        elif normalized_ticker == "RELIANCE.NS":
             pe = 24.1
             beta = 1.05
             price = 2950.0
         else:
-            sector = "General Industry"
+            sector = metadata["sector"]
             pe = 20.0
             beta = 1.0
             price = 500.0 if is_indian else 100.0
 
         return AssetMetrics(
-            ticker=ticker_symbol,
-            company_name=ticker_symbol.replace(".NS", "").replace(".BO", ""),
-            sector=sector,
+            ticker=normalized_ticker,
+            company_name=metadata["name"],
+            sector=metadata["sector"],
             current_price=price,
             currency="INR" if is_indian else "USD",
             trailing_pe=pe,

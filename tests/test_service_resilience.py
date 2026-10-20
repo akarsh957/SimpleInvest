@@ -141,6 +141,39 @@ def test_twelve_data_history_requests_time_series(monkeypatch):
     )]
 
 
+@pytest.mark.parametrize(
+    ("ticker", "expected_sector"),
+    [
+        ("INFY.NS", "Technology"),
+        ("TCS.NS", "Technology"),
+        ("BHARTIARTL.NS", "Communication Services"),
+        ("MSFT", "Technology"),
+        ("ACN", "Technology"),
+        ("NVDA", "Technology"),
+        ("PG", "Consumer Defensive"),
+        ("AXISBANK.NS", "Financial Services"),
+    ],
+)
+def test_fallback_asset_metrics_preserve_company_sector(ticker, expected_sector):
+    metrics = market_data.MarketDataService._generate_fallback_metrics(
+        ticker,
+        "quote unavailable",
+    )
+
+    assert metrics.ticker == ticker
+    assert metrics.sector == expected_sector
+    assert metrics.sector not in {"General Industry", "General Market"}
+
+
+def test_unmapped_ticker_is_marked_unclassified():
+    metrics = market_data.MarketDataService._generate_fallback_metrics(
+        "UNKNOWN",
+        "quote unavailable",
+    )
+
+    assert metrics.sector == "Unclassified"
+
+
 def test_market_trend_uses_sorted_twelve_data_history(monkeypatch):
     async def get_history(_ticker, interval, outputsize):
         assert interval == "1day"
