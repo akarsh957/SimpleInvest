@@ -23,7 +23,7 @@ interface InteractiveStockChartProps {
 
 export function InteractiveStockChart({
   data,
-  color = "#10b981",
+  color = "#246b55",
 }: InteractiveStockChartProps) {
   const formattedData = useMemo(() => {
     return [...data].reverse().map((item) => ({
@@ -37,8 +37,8 @@ export function InteractiveStockChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-full flex items-center justify-center font-mono text-xs text-zinc-600">
-        NO HISTORICAL TELEMETRY
+      <div className="w-full h-full flex items-center justify-center text-xs text-[#7c8981]">
+      No historical price data is available.
       </div>
     );
   }
@@ -57,32 +57,31 @@ export function InteractiveStockChart({
               <stop offset="95%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e5de" vertical={false} />
           <XAxis
             dataKey="displayDate"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#71717a", fontSize: 10, fontFamily: "var(--font-mono)" }}
+            tick={{ fill: "#7c8981", fontSize: 10 }}
             minTickGap={25}
           />
           <YAxis
             domain={[min - padding, max + padding]}
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#71717a", fontSize: 10, fontFamily: "var(--font-mono)" }}
+            tick={{ fill: "#7c8981", fontSize: 10 }}
             tickFormatter={(value) => `$${value.toFixed(0)}`}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0f0f12",
-              border: "1px solid #27272a",
-              borderRadius: "4px",
-              fontFamily: "var(--font-mono)",
+              backgroundColor: "#ffffff",
+              border: "1px solid #e2e5de",
+              borderRadius: "8px",
               fontSize: "11px",
-              color: "#fafafa",
+              color: "#20312d",
             }}
-            itemStyle={{ color: "#fafafa" }}
-            labelStyle={{ color: "#71717a", marginBottom: "4px" }}
+            itemStyle={{ color: "#20312d" }}
+            labelStyle={{ color: "#7c8981", marginBottom: "4px" }}
           />
           <Area
             type="monotone"

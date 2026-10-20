@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Download,
   RefreshCw,
   Plus,
-  TrendingUp,
-  TrendingDown,
 } from "lucide-react";
 import {
   AreaChart,
@@ -24,6 +23,7 @@ import { SectorDonutChart } from "@/src/components/dashboard/SectorDonutChart";
 import { JargonBusterCard } from "@/src/components/dashboard/JargonBusterCard";
 import { MarketScenarios } from "@/src/components/dashboard/MarketScenarios";
 import { Holding, Portfolio, PortfolioAuditResponse } from "@/src/types/portfolio";
+import { useRealtimePortfolio } from "@/src/hooks/useRealtimePortfolio";
 import {
   getPortfolioHoldings,
   addHoldingAction,
@@ -33,6 +33,7 @@ import {
 import { formatCurrency } from "@/src/lib/utils";
 
 interface DashboardClientProps {
+  userId: string;
   userEmail: string;
   userName: string;
   initialPortfolios: Portfolio[];
@@ -41,6 +42,7 @@ interface DashboardClientProps {
 }
 
 export function DashboardClient({
+  userId,
   userEmail,
   userName,
   initialPortfolios,
@@ -59,6 +61,8 @@ export function DashboardClient({
   const [isHoldingsLoading, setIsHoldingsLoading] = useState<boolean>(false);
   const [chartTimeframe, setChartTimeframe] = useState<"1D" | "1W" | "1M" | "3M" | "1Y" | "ALL">("1M");
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const { balance: availableCash } = useRealtimePortfolio(userId);
+  const reduceMotion = useReducedMotion();
 
   const runAudit = useCallback(async (currentHoldings: Holding[]) => {
     if (!currentHoldings || currentHoldings.length === 0) {
@@ -275,20 +279,26 @@ export function DashboardClient({
         </div>
       )}
 
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <motion.main
+        className="app-content flex-1 px-4 sm:px-6 md:px-8 space-y-6"
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
+      >
         {/* ── Page Title Row ────────────────────────────── */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <h1 className="text-xl font-bold tracking-tight text-white">
-              {activePortfolio ? activePortfolio.name : "My Portfolio"}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-[#246b55]">Portfolio / simulated</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+              Good to see you, {userName.split(" ")[0]}.
             </h1>
-            <span className="inline-flex items-center space-x-1 text-[10px] font-mono text-[#5A6070] uppercase tracking-wide">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#00D09C] live-dot" />
-              <span>Live</span>
-            </span>
+            <p className="mt-1 text-sm text-[#5A6070]">
+              A clearer view of where you stand, and what’s changing.
+              {activePortfolio ? ` ${activePortfolio.name} · Paper portfolio.` : ""}
+            </p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleExport}
               className="h-9 px-3 rounded-lg border border-[#262A34] bg-[#1A1D24] hover:bg-[#20242D] text-[#A0A8B8] text-xs flex items-center space-x-1.5 transition-colors"
@@ -311,7 +321,7 @@ export function DashboardClient({
               className="h-9 px-4 rounded-lg bg-[#00D09C] text-[#0B0E11] text-xs font-semibold flex items-center space-x-1.5 hover:bg-[#00B88A] transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Add Transaction</span>
+              <span>Add asset</span>
             </button>
           </div>
         </div>
@@ -319,49 +329,42 @@ export function DashboardClient({
         {/* ── Hero Portfolio Card ───────────────────────── */}
         <div className="bg-[#1A1D24] border border-[#262A34] rounded-xl p-6">
           {/* Top Row: Main Value + Metric Cluster */}
-          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 mb-6">
-            {/* Left: Current Value */}
+          <div className="mb-6 grid grid-cols-2 gap-x-6 gap-y-4 border-b border-[#262A34] pb-5 md:grid-cols-4">
             <div>
-              <p className="text-xs font-medium text-[#5A6070] uppercase tracking-wider mb-1">Current Value</p>
-              <div className="flex items-end space-x-3">
-                <span className="text-4xl font-bold text-white tabular-nums tracking-tight">
-                  {formatCurrency(totalEstimatedValue)}
-                </span>
-                <span className={`inline-flex items-center space-x-1 text-sm font-semibold mb-1 tabular-nums ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
-                  {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                  <span>{isPositive ? "+" : ""}{profitPercentage.toFixed(2)}%</span>
-                  <span className="font-normal text-xs">today</span>
-                </span>
-              </div>
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[#5A6070]">Portfolio value</p>
+              <p className="text-xl font-semibold tracking-tight text-white tabular-nums">{formatCurrency(totalEstimatedValue)}</p>
+              <p className="mt-1 text-[11px] text-[#5A6070]">Simulated account</p>
             </div>
-
-            {/* Right: Metric Cluster */}
-            <div className="flex items-stretch divide-x divide-[#262A34]">
-              <div className="px-5 first:pl-0">
-                <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-1">Invested Amount</p>
-                <p className="text-base font-semibold text-white tabular-nums">{formatCurrency(totalInvested)}</p>
-                <p className="text-[11px] text-[#5A6070] mt-0.5">{holdings.length} positions</p>
-              </div>
-              <div className="px-5">
-                <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-1">Total Returns</p>
-                <p className={`text-base font-semibold tabular-nums ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
-                  {isPositive ? "+" : ""}{formatCurrency(netProfit)}
-                </p>
-                <p className="text-[11px] text-[#5A6070] mt-0.5">All-time P&L</p>
-              </div>
-              <div className="px-5">
-                <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-1">Portfolio Beta</p>
-                <p className="text-base font-semibold text-white tabular-nums">
-                  {auditData?.diversification_score
-                    ? (1.0 + (auditData.diversification_score - 70) * 0.01).toFixed(2)
-                    : "1.08"}
-                </p>
-                <p className="text-[11px] text-[#5A6070] mt-0.5">Balanced</p>
-              </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[#5A6070]">Invested amount</p>
+              <p className="text-xl font-semibold tracking-tight text-white tabular-nums">{formatCurrency(totalInvested)}</p>
+              <p className="mt-1 text-[11px] text-[#5A6070]">{holdings.length} positions</p>
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[#5A6070]">Total return</p>
+              <p className={`text-xl font-semibold tracking-tight tabular-nums ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
+                {isPositive ? "+" : ""}{formatCurrency(netProfit)}
+              </p>
+              <p className={`mt-1 text-[11px] tabular-nums ${isPositive ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
+                {isPositive ? "+" : ""}{profitPercentage.toFixed(2)}% overall
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-[#5A6070]">Available cash</p>
+              <p className="text-xl font-semibold tracking-tight text-white tabular-nums">
+                {availableCash === null ? "—" : formatCurrency(availableCash)}
+              </p>
+              <p className="mt-1 text-[11px] text-[#5A6070]">For paper trades</p>
             </div>
           </div>
 
           {/* Chart */}
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-white">Portfolio performance</h2>
+              <p className="mt-0.5 text-[11px] text-[#5A6070]">Illustrative trend · S&amp;P 500 comparison</p>
+            </div>
+          </div>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -469,10 +472,10 @@ export function DashboardClient({
             />
           </div>
         </div>
-      </main>
+      </motion.main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-[#262A34] bg-[#121418] py-4 text-xs text-[#373D4A] font-mono">
+      <footer className="app-footer mt-auto border-t border-[#262A34] bg-[#121418] py-4 text-xs text-[#373D4A] font-mono">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>SimpleInvest · Wealth Management Platform</span>
           <span>Market data for informational purposes only</span>

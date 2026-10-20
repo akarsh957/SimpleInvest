@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { RefreshCw, Sparkles } from "lucide-react";
 import { TerminalHeader } from "@/src/components/terminal/TerminalHeader";
 import { Portfolio } from "@/src/types/portfolio";
@@ -94,32 +95,46 @@ export function AiScreenerClient({
 }: AiScreenerClientProps) {
   const [portfolios] = useState<Portfolio[]>(initialPortfolios);
   const [activePortfolio, setActivePortfolio] = useState<Portfolio | null>(initialActivePortfolio);
+  const reduceMotion = useReducedMotion();
 
   const [riskPreference, setRiskPreference] = useState<"conservative" | "balanced" | "growth">("balanced");
   const [sectorFilter, setSectorFilter] = useState<"all" | "tech" | "finance" | "energy">("all");
 
   const [recommendations, setRecommendations] = useState<GrowthOpportunity[]>(INITIAL_FALLBACK_RECOMMENDATIONS);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSampleData, setIsSampleData] = useState(true);
+  const [scoutError, setScoutError] = useState<string | null>(null);
+  const [tradePendingTicker, setTradePendingTicker] = useState<string | null>(null);
+  const [tradeLaunchError, setTradeLaunchError] = useState<string | null>(null);
+  const [selectedTicker, setSelectedTicker] = useState(INITIAL_FALLBACK_RECOMMENDATIONS[0].ticker);
 
   const [tradeTarget, setTradeTarget] = useState<{ ticker: string; price: number } | null>(null);
   const [forecastTarget, setForecastTarget] = useState<string | null>(null);
 
   const runGrowthScout = async () => {
     setIsLoading(true);
+    setScoutError(null);
     try {
       const res = await fetch(getBackendUrl("/api/ai/growth-scout"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ risk_preference: riskPreference, sector: sectorFilter }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.recommendations && data.recommendations.length > 0) {
-          setRecommendations(data.recommendations);
-        }
+      if (!res.ok) {
+        throw new Error(`Screener request failed (${res.status}).`);
       }
-    } catch (e) {
-      console.warn("Using local screener engine.", e);
+
+      const data: { recommendations?: GrowthOpportunity[] } = await res.json();
+      if (!Array.isArray(data.recommendations)) {
+        throw new Error("The screener returned an invalid response.");
+      }
+      setRecommendations(data.recommendations);
+      setSelectedTicker(data.recommendations[0]?.ticker ?? "");
+      setIsSampleData(false);
+    } catch (error) {
+      console.warn("Using sample screener results.", error);
+      setIsSampleData(true);
+      setScoutError("Live screening is unavailable. Sample results are shown for layout and learning only.");
     } finally {
       setIsLoading(false);
     }
@@ -127,18 +142,46 @@ export function AiScreenerClient({
 
   useEffect(() => { runGrowthScout(); }, [riskPreference, sectorFilter]);
 
-  const sectors = [
+  const openPaperTrade = async (ticker: string) => {
+    setTradePendingTicker(ticker);
+    setTradeLaunchError(null);
+    try {
+      const response = await fetch("/api/market/forecast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, timeframe: "1mo", forecast_days: 30 }),
+      });
+      if (!response.ok) {
+        throw new Error(`A current market quote is unavailable for ${ticker}.`);
+      }
+      const quote: { current_price?: number } = await response.json();
+      if (typeof quote.current_price !== "number" || !Number.isFinite(quote.current_price) || quote.current_price <= 0) {
+        throw new Error(`A valid market quote is unavailable for ${ticker}.`);
+      }
+      setTradeTarget({ ticker, price: quote.current_price });
+    } catch (error) {
+      console.error("Unable to prepare a paper trade:", error);
+      setTradeLaunchError(error instanceof Error ? error.message : "Unable to prepare this paper trade.");
+    } finally {
+      setTradePendingTicker(null);
+    }
+  };
+
+  const sectors: { id: typeof sectorFilter; label: string }[] = [
     { id: "all",     label: "All Sectors"  },
     { id: "tech",    label: "Technology"   },
     { id: "finance", label: "Financials"   },
     { id: "energy",  label: "Energy"       },
   ];
 
-  const riskProfiles = [
+  const riskProfiles: { id: typeof riskPreference; label: string }[] = [
     { id: "conservative", label: "Conservative" },
     { id: "balanced",     label: "Balanced"     },
     { id: "growth",       label: "Growth"       },
   ];
+  const selectedOpportunity = recommendations.find((item) => item.ticker === selectedTicker)
+    ?? recommendations[0]
+    ?? null;
 
   return (
     <div className="min-h-screen bg-[#121418] text-[#E8ECF4] flex flex-col font-sans">
@@ -150,12 +193,18 @@ export function AiScreenerClient({
         onSelectPortfolio={(p) => setActivePortfolio(p)}
       />
 
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <motion.main
+        className="app-content flex-1 px-4 sm:px-6 md:px-8 space-y-6"
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
+      >
         {/* Page Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white">AI Equity Screener</h1>
-            <p className="text-xs text-[#5A6070] mt-0.5">Factor modelling · Forward PEG & revenue velocity analysis</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.13em] text-[#246b55]">Research / quantitative first</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">Find companies. Understand why.</h1>
+            <p className="mt-1 text-sm text-[#5A6070]">Start with transparent filters, then use AI-assisted context to ask better questions.</p>
           </div>
         </div>
 
@@ -170,7 +219,7 @@ export function AiScreenerClient({
                   {sectors.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => setSectorFilter(s.id as any)}
+                      onClick={() => setSectorFilter(s.id)}
                       className={`h-7 px-3 rounded-lg text-xs font-medium transition-all ${
                         sectorFilter === s.id
                           ? "bg-[#5367FF]/10 text-[#5367FF] border border-[#5367FF]/25"
@@ -192,7 +241,7 @@ export function AiScreenerClient({
                   {riskProfiles.map((r) => (
                     <button
                       key={r.id}
-                      onClick={() => setRiskPreference(r.id as any)}
+                      onClick={() => setRiskPreference(r.id)}
                       className={`h-7 px-3 rounded-lg text-xs font-medium transition-all ${
                         riskPreference === r.id
                           ? "bg-[#5367FF]/10 text-[#5367FF] border border-[#5367FF]/25"
@@ -221,127 +270,150 @@ export function AiScreenerClient({
           </div>
         </div>
 
-        {/* ── Research Cards ──────────────────────────── */}
+        <div className={`rounded-md border px-4 py-3 text-xs leading-5 ${
+          scoutError || isSampleData
+            ? "border-[#ebdfc3] bg-[#fbf6e9] text-[#796335]"
+            : "border-[#d4e5d9] bg-[#e8f1eb] text-[#44574f]"
+        }`}>
+          <p className="font-semibold">Your criteria lead. AI explains.</p>
+          <p className="mt-0.5">
+            {scoutError || (isSampleData
+              ? "Sample research data is displayed until live screening is available."
+              : "Matches and summaries are informational estimates—not investment recommendations or a promise of performance.")}
+          </p>
+        </div>
+
+        {tradeLaunchError && (
+          <p role="alert" className="rounded-md border border-[#edd4cf] bg-[#f8ece9] px-4 py-3 text-xs text-[#a7463b]">
+            {tradeLaunchError}
+          </p>
+        )}
+
         {isLoading ? (
-          <div className="bg-[#1A1D24] border border-[#262A34] rounded-xl p-16 text-center space-y-3">
-            <RefreshCw className="h-6 w-6 animate-spin mx-auto text-[#5367FF]" />
-            <p className="text-xs text-[#5A6070]">Evaluating valuation metrics and revenue velocity...</p>
+          <div className="rounded-xl border border-[#e2e5de] bg-white p-12 text-center">
+            <RefreshCw className="mx-auto h-5 w-5 animate-spin text-[#246b55]" />
+            <p className="mt-3 text-sm font-medium text-[#20312d]">Applying your criteria</p>
+            <p className="mt-1 text-xs text-[#7c8981]">Reviewing available company fundamentals…</p>
+          </div>
+        ) : recommendations.length === 0 ? (
+          <div className="rounded-xl border border-[#e2e5de] bg-white px-6 py-14 text-center">
+            <h2 className="text-sm font-semibold text-[#20312d]">No companies match these criteria</h2>
+            <p className="mt-1 text-xs text-[#7c8981]">Try another sector or risk profile, then apply the filters again.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {recommendations.map((opp, idx) => {
-              const ratingStyle = getRatingStyle(opp.recommendation_action);
-              const isBuy = ["buy", "strong buy"].includes(opp.recommendation_action.toLowerCase());
-              const initials = opp.ticker.replace(".NS", "").replace(".BO", "").charAt(0);
-              return (
-                <div
-                  key={`${opp.ticker}-${idx}`}
-                  className="bg-[#1A1D24] border border-[#262A34] hover:border-[#383E4C] rounded-xl p-6 flex flex-col justify-between transition-all group"
-                >
-                  {/* Card Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-full bg-[#5367FF]/10 border border-[#5367FF]/20 text-[#5367FF] text-sm font-bold flex items-center justify-center shrink-0">
-                        {initials}
-                      </div>
-                      <div>
-                        <p className="text-base font-bold text-white">{opp.company_name.split(" ").slice(0, 2).join(" ")}</p>
-                        <p className="text-[11px] text-[#5A6070] font-mono">{opp.ticker}</p>
-                      </div>
-                    </div>
+          <section className="space-y-4">
+            <div className="overflow-hidden rounded-xl border border-[#e2e5de] bg-white">
+              <div className="flex flex-wrap items-end justify-between gap-2 border-b border-[#e2e5de] px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-[#20312d]">{recommendations.length} companies match</h2>
+                  <p className="mt-1 text-xs text-[#7c8981]">Sorted by the screen’s model signal · Select a company for context</p>
+                </div>
+                <span className="rounded-full bg-[#f0f1eb] px-2.5 py-1 text-[10px] font-medium text-[#596a63]">Research only</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[680px] text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-[#e2e5de] bg-[#f5f7f3] text-[10px] font-semibold uppercase tracking-[0.1em] text-[#7c8981]">
+                      <th className="px-5 py-3">Company</th>
+                      <th className="px-4 py-3">Model signal</th>
+                      <th className="px-4 py-3 text-right">Illustrative 12M range</th>
+                      <th className="px-4 py-3 text-right">Risk</th>
+                      <th className="px-5 py-3 text-right">Confidence</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e2e5de]">
+                    {recommendations.map((opportunity) => {
+                      const ratingStyle = getRatingStyle(opportunity.recommendation_action);
+                      const isSelected = selectedOpportunity?.ticker === opportunity.ticker;
+                      const initials = opportunity.ticker.replace(".NS", "").replace(".BO", "").charAt(0);
+                      return (
+                        <tr
+                          key={opportunity.ticker}
+                          className={`transition-colors ${isSelected ? "bg-[#e8f1eb]" : "hover:bg-[#f5f7f3]"}`}
+                        >
+                          <td className="px-5 py-3">
+                            <button
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => setSelectedTicker(opportunity.ticker)}
+                              className="flex items-center gap-3 text-left"
+                            >
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e9f0ed] text-xs font-semibold text-[#3c716c]">
+                                {initials}
+                              </span>
+                              <span>
+                                <span className="block font-semibold text-[#20312d]">{opportunity.company_name}</span>
+                                <span className="mt-0.5 block text-[10px] text-[#7c8981]">{opportunity.ticker}</span>
+                              </span>
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex rounded-md border px-2 py-1 text-[10px] font-medium ${ratingStyle.bg} ${ratingStyle.text} ${ratingStyle.border}`}>
+                              {opportunity.recommendation_action}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium tabular-nums text-[#246b55]">
+                            {opportunity.potential_upside_range}
+                          </td>
+                          <td className="px-4 py-3 text-right text-[#596a63]">{opportunity.risk_level}</td>
+                          <td className="px-5 py-3 text-right font-medium tabular-nums text-[#20312d]">
+                            {opportunity.confidence_score}<span className="font-normal text-[#7c8981]">/100</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-                    <div className="flex flex-col items-end space-y-1.5">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${ratingStyle.bg} ${ratingStyle.text} ${ratingStyle.border}`}>
-                        {opp.recommendation_action}
-                      </span>
-                      {/* Fundamental Score */}
-                      <div className="flex items-center space-x-1.5">
-                        <div className="relative h-6 w-6">
-                          <svg className="h-6 w-6 -rotate-90" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="9" fill="none" stroke="#262A34" strokeWidth="2.5" />
-                            <circle
-                              cx="12" cy="12" r="9" fill="none"
-                              stroke="#5367FF" strokeWidth="2.5"
-                              strokeDasharray={`${(opp.confidence_score / 100) * 56.5} 56.5`}
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </div>
-                        <span className="text-xs font-semibold text-white tabular-nums">{opp.confidence_score}<span className="text-[#5A6070] font-normal">/100</span></span>
-                      </div>
-                    </div>
+            {selectedOpportunity && (
+              <div className="rounded-xl border border-[#e2e5de] bg-white p-5 sm:p-6">
+                <div className="flex flex-col justify-between gap-4 border-b border-[#e2e5de] pb-4 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7c8981]">AI-assisted explanation · {selectedOpportunity.ticker}</p>
+                    <h2 className="mt-1 text-lg font-semibold text-[#20312d]">Why {selectedOpportunity.company_name.split(" ").slice(0, 2).join(" ")} matches</h2>
                   </div>
-
-                  {/* Target Return Bar */}
-                  <div className="bg-[#14171D] rounded-lg p-3 mb-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-0.5">12M Projected Return</p>
-                      <p className={`text-base font-bold tabular-nums ${isBuy ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
-                        {opp.potential_upside_range}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] uppercase tracking-wider text-[#5A6070] mb-0.5">Risk Profile</p>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${
-                        opp.risk_level.toLowerCase() === "low"
-                          ? "bg-[#00D09C]/10 text-[#00D09C]"
-                          : opp.risk_level.toLowerCase() === "moderate"
-                          ? "bg-[#5367FF]/10 text-[#5367FF]"
-                          : "bg-[#EB5B3C]/10 text-[#EB5B3C]"
-                      }`}>
-                        {opp.risk_level}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Analysis Rows */}
-                  <div className="space-y-3 flex-1">
-                    {/* Growth Catalyst */}
-                    <div>
-                      <div className="flex items-center space-x-1.5 mb-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#00D09C]" />
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#5A6070]">Growth Catalyst</p>
-                      </div>
-                      <p className="text-xs text-[#A0A8B8] leading-relaxed">{opp.growth_catalyst}</p>
-                    </div>
-
-                    {/* Key Financial Metric */}
-                    <div className="bg-[#14171D] rounded-lg px-3 py-2">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#5A6070] mb-0.5">Key Financial Metric</p>
-                      <p className="text-xs font-mono font-medium text-white">{opp.key_metric_highlight}</p>
-                    </div>
-
-                    {/* Key Risk */}
-                    <div>
-                      <div className="flex items-center space-x-1.5 mb-1">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#EB5B3C]" />
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#5A6070]">Key Risk to Watch</p>
-                      </div>
-                      <p className="text-xs text-[#5A6070] leading-relaxed">{opp.cautionary_flag}</p>
-                    </div>
-                  </div>
-
-                  {/* Card Footer */}
-                  <div className="flex items-center justify-between pt-4 mt-4 border-t border-[#262A34]">
+                  <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => setForecastTarget(opp.ticker)}
-                      className="text-xs text-[#5367FF] hover:text-white transition-colors font-medium underline-offset-2 hover:underline"
+                      type="button"
+                      onClick={() => setForecastTarget(selectedOpportunity.ticker)}
+                      className="h-9 rounded-md border border-[#e2e5de] bg-white px-3 text-xs font-medium text-[#596a63] transition-colors hover:bg-[#f5f7f3] hover:text-[#20312d]"
                     >
-                      View Price Projection
+                      View price projection
                     </button>
                     <button
-                      onClick={() => setTradeTarget({ ticker: opp.ticker, price: 150 })}
-                      className="h-8 px-4 rounded-lg bg-[#00D09C] text-[#0B0E11] text-xs font-semibold hover:bg-[#00B88A] transition-colors"
+                      type="button"
+                      onClick={() => openPaperTrade(selectedOpportunity.ticker)}
+                      disabled={tradePendingTicker === selectedOpportunity.ticker}
+                      className="h-9 rounded-md bg-[#246b55] px-3 text-xs font-semibold text-white transition-colors hover:bg-[#1d5b48] disabled:cursor-wait disabled:opacity-60"
                     >
-                      Quick Invest
+                      {tradePendingTicker === selectedOpportunity.ticker ? "Getting quote…" : "Paper trade"}
                     </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div className="grid gap-5 pt-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#246b55]">What matches</p>
+                    <p className="mt-2 text-sm leading-6 text-[#596a63]">{selectedOpportunity.growth_catalyst}</p>
+                    <div className="mt-4 rounded-md bg-[#f5f7f3] p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#7c8981]">Metric context</p>
+                      <p className="mt-1 text-xs leading-5 text-[#44574f]">{selectedOpportunity.key_metric_highlight}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#796335]">What to question</p>
+                    <p className="mt-2 text-sm leading-6 text-[#596a63]">{selectedOpportunity.cautionary_flag}</p>
+                    <p className="mt-4 text-xs leading-5 text-[#7c8981]">
+                      Model signals and ranges can be incomplete or inaccurate. Verify source data and consider your own objectives before making decisions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
         )}
-      </main>
+      </motion.main>
 
       {/* Footer */}
       <footer className="mt-auto border-t border-[#262A34] bg-[#121418] py-4 text-xs text-[#373D4A] font-mono">

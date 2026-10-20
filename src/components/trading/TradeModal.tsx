@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { X, TrendingUp, TrendingDown } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -29,6 +29,7 @@ export function TradeModal({
   const [error, setError] = useState<string | null>(null);
   const [availableCash, setAvailableCash] = useState<number>(100000);
   const [ownedShares, setOwnedShares] = useState<number>(0);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => { if (initialSide) setSide(initialSide); }, [initialSide]);
   useEffect(() => { if (isOpen) { setShares(""); setError(null); } }, [isOpen]);
@@ -88,12 +89,13 @@ export function TradeModal({
     };
   }, [isOpen, supabase, ticker]);
 
-  const safeCurrentPrice = currentPrice > 0 ? currentPrice : 1;
+  const quoteAvailable = Number.isFinite(currentPrice) && currentPrice > 0;
+  const safeCurrentPrice = quoteAvailable ? currentPrice : 0;
   const numShares = typeof shares === "number" ? shares : 0;
   const estimatedCost = numShares * safeCurrentPrice;
   const remainingCash = Math.max(0, availableCash - (side === "BUY" ? estimatedCost : 0));
   const maxSharesForSide = side === "BUY"
-    ? Math.max(0, Math.floor(availableCash / safeCurrentPrice))
+    ? quoteAvailable ? Math.max(0, Math.floor(availableCash / safeCurrentPrice)) : 0
     : Math.max(0, Math.floor(ownedShares));
 
   const addShares = (n: number) => {
@@ -105,7 +107,7 @@ export function TradeModal({
 
   const handleTrade = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shares || shares <= 0) return;
+    if (!shares || shares <= 0 || !quoteAvailable) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -137,6 +139,7 @@ export function TradeModal({
   };
 
   const isBuy = side === "BUY";
+  const currencySymbol = /\.(NS|BO)$/i.test(ticker) ? "₹" : "$";
 
   return (
     <AnimatePresence>
@@ -144,19 +147,20 @@ export function TradeModal({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
-            initial={{ opacity: 0 }}
+            initial={reduceMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.16 }}
             onClick={onClose}
             className="absolute inset-0 bg-black/65 backdrop-blur-sm"
           />
 
           {/* Modal */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.16, ease: "easeOut" }}
+            transition={{ duration: reduceMotion ? 0 : 0.16, ease: "easeOut" }}
             className="relative w-full max-w-sm bg-[#1A1D24] border border-[#262A34] rounded-xl p-6 shadow-2xl"
           >
             {/* Header */}
@@ -171,7 +175,9 @@ export function TradeModal({
                   </span>
                 </div>
                 <p className="text-xl font-bold text-white tabular-nums font-mono mt-0.5">
-                  ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {quoteAvailable
+                    ? `${currencySymbol}${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : "Quote unavailable"}
                 </p>
               </div>
               <button
@@ -183,6 +189,11 @@ export function TradeModal({
             </div>
 
             <form onSubmit={handleTrade} className="space-y-4">
+              {!quoteAvailable && (
+                <div role="alert" className="rounded-lg border border-[#ebdfc3] bg-[#fbf6e9] p-3 text-xs text-[#796335]">
+                  A valid market quote is unavailable, so this paper trade cannot be submitted.
+                </div>
+              )}
               {/* Error */}
               {error && (
                 <div className="p-3 bg-[#EB5B3C]/10 border border-[#EB5B3C]/25 rounded-lg text-[#EB5B3C] text-xs">
@@ -280,7 +291,7 @@ export function TradeModal({
                 <div className="flex justify-between items-center px-3 py-2.5">
                   <span className="text-[#5A6070]">Market Price</span>
                   <span className="text-[#A0A8B8] font-mono tabular-nums">
-                    ${currentPrice.toFixed(2)}
+                    {currencySymbol}{currentPrice.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center px-3 py-2.5">
@@ -292,14 +303,14 @@ export function TradeModal({
                 <div className="flex justify-between items-center px-3 py-2.5">
                   <span className="text-[#5A6070]">Estimated Cost</span>
                   <span className={`font-semibold font-mono tabular-nums ${isBuy ? "text-[#00D09C]" : "text-[#EB5B3C]"}`}>
-                    ${estimatedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {currencySymbol}{estimatedCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 {isBuy && (
                   <div className="flex justify-between items-center px-3 py-2.5">
                     <span className="text-[#5A6070]">Remaining Cash</span>
                     <span className="text-[#A0A8B8] font-mono tabular-nums">
-                      ${remainingCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {currencySymbol}{remainingCash.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 )}
@@ -308,9 +319,9 @@ export function TradeModal({
               {/* CTA Button */}
               <button
                 type="submit"
-                disabled={isSubmitting || !shares || shares <= 0}
+                disabled={isSubmitting || !shares || shares <= 0 || !quoteAvailable}
                 className={`w-full h-11 rounded-xl font-bold text-sm transition-all ${
-                  isSubmitting || !shares || shares <= 0
+                  isSubmitting || !shares || shares <= 0 || !quoteAvailable
                     ? "bg-[#262A34] text-[#5A6070] cursor-not-allowed"
                     : isBuy
                     ? "bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] shadow-lg shadow-[#00D09C]/20"
@@ -319,11 +330,11 @@ export function TradeModal({
               >
                 {isSubmitting
                   ? "Processing..."
-                  : `${isBuy ? "Buy" : "Sell"} ${numShares || ""} ${ticker} ${numShares ? `· $${estimatedCost.toFixed(2)}` : ""}`}
+                  : `${isBuy ? "Buy" : "Sell"} ${numShares || ""} ${ticker} ${numShares ? `· ${currencySymbol}${estimatedCost.toFixed(2)}` : ""}`}
               </button>
 
               <p className="text-center text-[10px] text-[#373D4A]">
-                Market order · Executed at best available price
+                Paper trade only · No brokerage order will be placed
               </p>
             </form>
           </motion.div>

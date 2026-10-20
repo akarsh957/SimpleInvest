@@ -3,23 +3,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/src/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400 disabled:pointer-events-none disabled:opacity-50 select-none",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#246b55]/30 disabled:pointer-events-none disabled:opacity-50 select-none",
   {
     variants: {
       variant: {
         default:
-          "bg-zinc-100 text-zinc-950 hover:bg-white font-medium shadow-sm",
+          "bg-[#246b55] text-white hover:bg-[#1d5b48] font-medium",
         destructive:
-          "bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20",
+          "bg-[#f8ece9] text-[#a7463b] hover:bg-[#f1deda] border border-[#edd4cf]",
         outline:
-          "border border-zinc-800 bg-zinc-900 text-zinc-200 hover:bg-zinc-800 hover:text-white",
+          "border border-[#e2e5de] bg-white text-[#596a63] hover:bg-[#f5f7f3] hover:text-[#20312d]",
         secondary:
-          "bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border border-zinc-700/60",
-        ghost: "text-zinc-400 hover:bg-zinc-800/80 hover:text-zinc-100",
-        link: "text-zinc-100 underline-offset-4 hover:underline",
-        gradient: "bg-zinc-100 text-zinc-950 hover:bg-white font-medium shadow-sm",
-        platinum: "border border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800",
-        gold: "bg-zinc-100 text-zinc-950 hover:bg-white font-medium",
+          "bg-[#eef1ec] text-[#44574f] hover:bg-[#e5eae4] border border-[#dce2dc]",
+        ghost: "text-[#596a63] hover:bg-[#f0f1eb] hover:text-[#20312d]",
+        link: "text-[#20312d] underline-offset-4 hover:underline",
+        gradient: "bg-[#246b55] text-white hover:bg-[#1d5b48] font-medium",
+        platinum: "border border-[#dce2dc] bg-white text-[#44574f] hover:bg-[#f5f7f3]",
+        gold: "bg-[#246b55] text-white hover:bg-[#1d5b48] font-medium",
       },
       size: {
         default: "h-8 px-3 text-xs rounded",

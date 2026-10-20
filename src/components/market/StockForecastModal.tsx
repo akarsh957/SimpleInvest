@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -88,6 +88,7 @@ export function StockForecastModal({
   const [forecastDays, setForecastDays] = useState<number>(30);
   const [showVolume, setShowVolume] = useState<boolean>(true);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!ticker) return;
@@ -133,32 +134,34 @@ export function StockForecastModal({
   if (!ticker) return null;
 
   const sym = data?.currency === "INR" ? "₹" : "$";
-  const currentPrice  = data?.current_price || 0;
-  const targetPrice   = data?.ai_insights.target_price   || currentPrice * 1.05;
-  const bullTarget    = data?.ai_insights.bull_case_target || currentPrice * 1.15;
-  const bearTarget    = data?.ai_insights.bear_case_target || currentPrice * 0.90;
+  const currentPrice  = data?.current_price ?? null;
+  const targetPrice   = data?.ai_insights.target_price ?? null;
+  const bullTarget    = data?.ai_insights.bull_case_target ?? null;
+  const bearTarget    = data?.ai_insights.bear_case_target ?? null;
   const confidence    = data?.ai_insights.confidence_score;
-  const projChangePct = data?.ai_insights.projected_change_pct || 5.0;
+  const projChangePct = data?.ai_insights.projected_change_pct ?? null;
 
   const metricBar = [
     {
       label: `${forecastDays}D AI Target`,
-      value: `${sym}${targetPrice.toFixed(2)}`,
-      sub: `${projChangePct >= 0 ? "+" : ""}${projChangePct.toFixed(2)}% projected`,
-      subColor: projChangePct >= 0 ? "text-[#00D09C]" : "text-[#EB5B3C]",
+      value: targetPrice == null ? "—" : `${sym}${targetPrice.toFixed(2)}`,
+      sub: projChangePct == null
+        ? (loading ? "Loading estimate…" : "Estimate unavailable")
+        : `${projChangePct >= 0 ? "+" : ""}${projChangePct.toFixed(2)}% model estimate`,
+      subColor: projChangePct == null ? "text-[#5A6070]" : projChangePct >= 0 ? "text-[#00D09C]" : "text-[#EB5B3C]",
       accent: "text-white",
     },
     {
       label: "Bull Case",
-      value: `${sym}${bullTarget.toFixed(2)}`,
-      sub: "Optimistic boundary",
+      value: bullTarget == null ? "—" : `${sym}${bullTarget.toFixed(2)}`,
+      sub: bullTarget == null ? "Model estimate unavailable" : "Optimistic boundary",
       subColor: "text-[#5A6070]",
       accent: "text-[#00D09C]",
     },
     {
       label: "Bear Case",
-      value: `${sym}${bearTarget.toFixed(2)}`,
-      sub: "Downside floor",
+      value: bearTarget == null ? "—" : `${sym}${bearTarget.toFixed(2)}`,
+      sub: bearTarget == null ? "Model estimate unavailable" : "Downside boundary",
       subColor: "text-[#5A6070]",
       accent: "text-[#EB5B3C]",
     },
@@ -181,10 +184,10 @@ export function StockForecastModal({
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.97, y: 12 }}
+          initial={reduceMotion ? false : { opacity: 0, scale: 0.97, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.97, y: 12 }}
-          transition={{ duration: 0.18, ease: "easeOut" }}
+          transition={{ duration: reduceMotion ? 0 : 0.18, ease: "easeOut" }}
           className={`w-full ${isMaximized ? "max-w-[98vw] h-[95vh]" : "max-w-5xl max-h-[92vh]"} flex flex-col rounded-xl border border-[#262A34] bg-[#1A1D24] shadow-2xl overflow-hidden transition-all`}
         >
           {/* ── Modal Header ─────────────────────────── */}
@@ -207,10 +210,11 @@ export function StockForecastModal({
             <div className="flex items-center space-x-2">
               {onTrade && (
                 <button
-                  onClick={() => onTrade(ticker, currentPrice)}
-                  className="h-8 px-4 rounded-lg bg-[#00D09C] text-[#0B0E11] text-xs font-semibold hover:bg-[#00B88A] transition-colors"
+                  onClick={() => currentPrice != null && onTrade(ticker, currentPrice)}
+                  disabled={currentPrice == null}
+                  className="h-8 px-4 rounded-lg bg-[#00D09C] text-[#0B0E11] text-xs font-semibold hover:bg-[#00B88A] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Buy {ticker}
+                  {currentPrice == null ? "Quote unavailable" : `Paper trade ${ticker}`}
                 </button>
               )}
               <button
@@ -238,6 +242,10 @@ export function StockForecastModal({
               </div>
             ))}
           </div>
+          <p className="shrink-0 border-b border-[#262A34] bg-[#f5f7f3] px-4 py-2 text-[11px] leading-5 text-[#596a63]">
+            Forecasts are uncertain model estimates, not guarantees or investment advice.
+            {currentPrice == null && !loading ? " Current quote is unavailable; paper trading is disabled." : ""}
+          </p>
 
           {/* ── Modal Body ───────────────────────────── */}
           <div className="flex-1 overflow-y-auto p-5 space-y-5">

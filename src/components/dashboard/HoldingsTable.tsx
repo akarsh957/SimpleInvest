@@ -141,7 +141,7 @@ export function HoldingsTable({
       <div className="bg-[#1A1D24] border border-[#262A34] rounded-xl overflow-hidden">
         {/* Table Toolbar */}
         <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#262A34]">
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <span className="text-sm font-semibold text-white">Holdings</span>
             <span className="text-[10px] font-mono text-[#5A6070] uppercase tracking-wide">
               {holdings.length} positions
@@ -313,7 +313,7 @@ export function HoldingsTable({
 
                       {/* Actions */}
                       <TableCell className="text-right pr-5">
-                        <div className="flex items-center justify-end space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end space-x-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => setTradeTarget({ ticker: item.ticker, price: item.current_price, side: "BUY" })}
                             className="h-7 px-2.5 text-[11px] font-semibold rounded-lg bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20 hover:bg-[#00D09C]/20 transition-colors"

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, RefreshCw, X, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Search, RefreshCw, Star, X, TrendingUp, TrendingDown, Activity } from "lucide-react";
 import { TerminalHeader } from "@/src/components/terminal/TerminalHeader";
 import { Portfolio } from "@/src/types/portfolio";
 import { StockForecastModal } from "./StockForecastModal";
@@ -125,15 +126,54 @@ export function MarketClient({
 }: MarketClientProps) {
   const [portfolios] = useState<Portfolio[]>(initialPortfolios);
   const [activePortfolio, setActivePortfolio] = useState<Portfolio | null>(initialActivePortfolio);
+  const reduceMotion = useReducedMotion();
 
   const [trendsData, setTrendsData] = useState<MarketTrendsResponse>(MOCK_FALLBACK_TRENDS);
-  const [activeTab, setActiveTab] = useState<"all" | "gainers" | "losers" | "volume">("all");
+  const [activeTab, setActiveTab] = useState<"watchlist" | "all" | "gainers" | "losers" | "volume">("all");
   const [marketFilter, setMarketFilter] = useState<"all" | "us" | "india">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [marketDataStatus, setMarketDataStatus] = useState<"live" | "sample">("sample");
+  const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [watchlistLoaded, setWatchlistLoaded] = useState(false);
 
   const [selectedForecastTicker, setSelectedForecastTicker] = useState<string | null>(null);
   const [tradeModalTarget, setTradeModalTarget] = useState<{ ticker: string; price: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("simpleinvest-market-watchlist");
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.every((ticker) => typeof ticker === "string")) {
+          setWatchlist(parsed);
+        } else {
+          console.warn("Ignoring invalid saved market watchlist.");
+        }
+      }
+    } catch (error) {
+      console.warn("Could not restore the saved market watchlist.", error);
+    } finally {
+      setWatchlistLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!watchlistLoaded) return;
+    try {
+      window.localStorage.setItem("simpleinvest-market-watchlist", JSON.stringify(watchlist));
+    } catch (error) {
+      console.warn("Could not save the market watchlist.", error);
+    }
+  }, [watchlist, watchlistLoaded]);
+
+  const toggleWatchlist = (ticker: string) => {
+    setWatchlist((current) =>
+      current.includes(ticker)
+        ? current.filter((item) => item !== ticker)
+        : [...current, ticker]
+    );
+  };
 
   const fetchTrends = async () => {
     setIsLoading(true);
@@ -141,10 +181,20 @@ export function MarketClient({
       const res = await fetch(getBackendUrl("/api/market/trends"));
       if (res.ok) {
         const json: MarketTrendsResponse = await res.json();
+        if (!Array.isArray(json.all_items) || json.all_items.length === 0) {
+          throw new Error("Market trends returned no instruments.");
+        }
         setTrendsData(json);
+        setMarketDataStatus("live");
+      } else {
+        console.warn(`Market trends request failed (${res.status}); keeping the sample snapshot.`);
+        setTrendsData(MOCK_FALLBACK_TRENDS);
+        setMarketDataStatus("sample");
       }
     } catch (err) {
       console.warn("Using fallback market snapshot.", err);
+      setTrendsData(MOCK_FALLBACK_TRENDS);
+      setMarketDataStatus("sample");
     } finally {
       setIsLoading(false);
     }
@@ -154,7 +204,8 @@ export function MarketClient({
 
   const getDisplayedItems = () => {
     let list: MarketTrendItem[] = [];
-    if (activeTab === "gainers")      list = trendsData.gainers.length     > 0 ? trendsData.gainers      : trendsData.all_items.filter((i) => i.change_percent >= 0);
+    if (activeTab === "watchlist") list = trendsData.all_items.filter((item) => watchlist.includes(item.ticker));
+    else if (activeTab === "gainers")      list = trendsData.gainers.length     > 0 ? trendsData.gainers      : trendsData.all_items.filter((i) => i.change_percent >= 0);
     else if (activeTab === "losers")  list = trendsData.losers.length      > 0 ? trendsData.losers       : trendsData.all_items.filter((i) => i.change_percent < 0);
     else if (activeTab === "volume")  list = trendsData.volume_leaders.length > 0 ? trendsData.volume_leaders : [...trendsData.all_items].sort((a, b) => b.volume - a.volume);
     else                              list = trendsData.all_items;
@@ -173,7 +224,8 @@ export function MarketClient({
   const topLoser    = trendsData.all_items.reduce((m, i) => i.change_percent < m.change_percent ? i : m, trendsData.all_items[0]);
   const volumeLeader = trendsData.all_items.reduce((m, i) => i.volume > m.volume ? i : m, trendsData.all_items[0]);
 
-  const tabs = [
+  const tabs: { id: typeof activeTab; label: string }[] = [
+    { id: "watchlist", label: `Watchlist${watchlist.length ? ` · ${watchlist.length}` : ""}` },
     { id: "all",     label: "All Stocks"   },
     { id: "gainers", label: "Top Gainers"  },
     { id: "losers",  label: "Top Losers"   },
@@ -190,12 +242,17 @@ export function MarketClient({
         onSelectPortfolio={(p) => setActivePortfolio(p)}
       />
 
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <motion.main
+        className="app-content flex-1 px-4 sm:px-6 md:px-8 space-y-6"
+        initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
+      >
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white">Explore Markets</h1>
-            <p className="text-xs text-[#5A6070] mt-0.5">US & NSE Equities · 52-Week Channels · 7D Trajectories</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Put the market in context.</h1>
+            <p className="mt-1 text-sm text-[#5A6070]">Follow market movers and explore the companies behind the numbers.</p>
           </div>
           <button
             onClick={fetchTrends}
@@ -205,6 +262,22 @@ export function MarketClient({
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
             <span>{isLoading ? "Refreshing..." : "Refresh"}</span>
           </button>
+        </div>
+
+        <div
+          role={marketDataStatus === "sample" ? "status" : undefined}
+          className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3.5 py-2.5 text-xs ${
+            marketDataStatus === "sample"
+              ? "border border-[#e8d9b9] bg-[#fbf6e9] text-[#796335]"
+              : "border border-[#e2e5de] bg-white text-[#7c8981]"
+          }`}
+        >
+          <span>
+            {marketDataStatus === "live"
+              ? "Market snapshot · Informational only"
+              : "Sample market data · Live quotes are currently unavailable."}
+          </span>
+          <span className="text-[11px]">Prices may be delayed. Not investment advice.</span>
         </div>
 
         {/* ── Market Pulse Cards ──────────────────────── */}
@@ -223,7 +296,7 @@ export function MarketClient({
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id)}
                   className={`relative h-8 px-3 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? "text-[#00D09C] bg-[#00D09C]/5"
@@ -242,7 +315,7 @@ export function MarketClient({
             <div className="flex items-center space-x-2">
               <select
                 value={marketFilter}
-                onChange={(e) => setMarketFilter(e.target.value as any)}
+                onChange={(e) => setMarketFilter(e.target.value as typeof marketFilter)}
                 className="h-8 rounded-lg bg-[#14171D] border border-[#262A34] px-2.5 text-xs text-[#A0A8B8] focus:outline-none focus:border-[#383E4C] cursor-pointer"
               >
                 <option value="all">Global</option>
@@ -286,7 +359,9 @@ export function MarketClient({
                 {displayedItems.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-[#5A6070] text-xs">
-                      No matching equities found.
+                      {activeTab === "watchlist"
+                    ? "Your watchlist is empty. Select All Stocks and save companies with the star."
+                    : "No matching equities found."}
                     </td>
                   </tr>
                 ) : (
@@ -355,7 +430,20 @@ export function MarketClient({
 
                         {/* Actions */}
                         <td className="py-3 px-4 text-right pr-5">
-                          <div className="flex items-center justify-end space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              type="button"
+                              aria-label={watchlist.includes(item.ticker) ? `Remove ${item.ticker} from watchlist` : `Add ${item.ticker} to watchlist`}
+                              aria-pressed={watchlist.includes(item.ticker)}
+                              onClick={() => toggleWatchlist(item.ticker)}
+                              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
+                                watchlist.includes(item.ticker)
+                                  ? "text-[#246b55] hover:bg-[#e8f1eb]"
+                                  : "text-[#7c8981] hover:bg-[#f0f1eb] hover:text-[#246b55]"
+                              }`}
+                            >
+                              <Star size={14} fill={watchlist.includes(item.ticker) ? "currentColor" : "none"} />
+                            </button>
                             <button
                               onClick={() => setSelectedForecastTicker(item.ticker)}
                               className="h-7 px-2.5 text-[11px] rounded-lg border border-[#262A34] bg-[#14171D] text-[#A0A8B8] hover:text-white hover:border-[#383E4C] transition-colors font-medium"
@@ -364,9 +452,11 @@ export function MarketClient({
                             </button>
                             <button
                               onClick={() => setTradeModalTarget({ ticker: item.ticker, price: item.current_price })}
-                              className="h-7 px-2.5 text-[11px] rounded-lg bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] transition-colors font-semibold"
+                              disabled={marketDataStatus !== "live"}
+                              title={marketDataStatus !== "live" ? "Live quote required to start a paper trade." : undefined}
+                              className="h-7 px-2.5 text-[11px] rounded-lg bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] transition-colors font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              Buy
+                              {marketDataStatus === "live" ? "Buy" : "Quote unavailable"}
                             </button>
                           </div>
                         </td>
@@ -378,7 +468,7 @@ export function MarketClient({
             </table>
           </div>
         </div>
-      </main>
+      </motion.main>
 
       {/* Footer */}
       <footer className="mt-auto border-t border-[#262A34] bg-[#121418] py-4 text-xs text-[#373D4A] font-mono">

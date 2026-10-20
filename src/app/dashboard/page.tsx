@@ -40,6 +40,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
+      userId={user.id}
       userEmail={user.email || profile?.email || 'investor@simpleinvest.ai'}
       userName={profile?.full_name || user.user_metadata?.full_name || 'Beginner Investor'}
       initialPortfolios={allPortfolios}
