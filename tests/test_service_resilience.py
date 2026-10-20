@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import time
 
 import pytest
 
@@ -198,3 +199,48 @@ def test_market_trend_uses_sorted_twelve_data_history(monkeypatch):
     assert trend.change_percent == 5
     assert trend.volume == 1200
     assert trend.sparkline == [100, 105]
+
+
+def test_market_trends_limit_live_provider_requests(monkeypatch):
+    tickers = ["NVDA", "MSFT", "TCS.NS", "INFY.NS", "AAPL"]
+    monkeypatch.setattr(market_data, "WATCHLIST_TICKERS", tickers)
+    monkeypatch.setattr(market_data, "LIVE_TREND_TICKERS", ("NVDA", "MSFT", "TCS.NS", "INFY.NS"))
+    monkeypatch.setattr(market_data, "MARKET_TREND_REQUEST_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr(market_data, "_TRENDS_CACHE", None)
+    monkeypatch.setattr(market_data, "_TRENDS_CACHE_TIME", 0)
+    monkeypatch.setattr(market_data.TwelveDataService, "is_configured", staticmethod(lambda: True))
+    requested_tickers = []
+
+    async def fetch_live_trend(ticker):
+        requested_tickers.append(ticker)
+        return market_data.MarketDataService._generate_fallback_trend_item(
+            ticker
+        ).model_copy(update={"data_source": "live"})
+
+    monkeypatch.setattr(
+        market_data.MarketDataService,
+        "_fetch_single_trend_item",
+        classmethod(lambda cls, ticker: fetch_live_trend(ticker)),
+    )
+
+    response = asyncio.run(market_data.MarketDataService.fetch_market_trends())
+
+    assert requested_tickers == ["NVDA", "MSFT", "TCS.NS", "INFY.NS"]
+    assert response.data_status == "partial"
+    assert response.live_items_count == 4
+    assert response.total_items_count == 5
+    assert response.all_items[-1].data_source == "sample"
+
+
+def test_twelve_data_skips_requests_during_rate_limit_cooldown(monkeypatch):
+    from backend.app.services.twelve_data import TwelveDataService
+
+    monkeypatch.setattr(settings, "TWELVE_DATA_API_KEY", "test-key")
+    monkeypatch.setattr(
+        TwelveDataService,
+        "_rate_limit_until",
+        time.monotonic() + 60,
+    )
+
+    with pytest.raises(ValueError, match="rate limit cooldown"):
+        asyncio.run(TwelveDataService._get("quote", "AAPL"))

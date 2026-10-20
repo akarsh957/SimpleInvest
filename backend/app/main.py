@@ -23,6 +23,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
+# HTTPX logs full request URLs at INFO; Twelve Data places its API key in the query string.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("simpleinvest")
 
 app = FastAPI(

@@ -12,6 +12,8 @@ class TwelveDataService:
     BASE_URL = "https://api.twelvedata.com"
     _response_cache: Dict[tuple[Any, ...], tuple[float, Dict[str, Any]]] = {}
     _cache_lock = threading.Lock()
+    _rate_limit_until = 0.0
+    RATE_LIMIT_COOLDOWN_SECONDS = 60
 
     @staticmethod
     def is_configured() -> bool:
@@ -36,6 +38,10 @@ class TwelveDataService:
             **params,
             "apikey": api_key,
         }
+        with cls._cache_lock:
+            if time.monotonic() < cls._rate_limit_until:
+                raise ValueError("Twelve Data rate limit cooldown is active.")
+
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.get(
@@ -47,6 +53,10 @@ class TwelveDataService:
                 f"Twelve Data {endpoint} transport error ({type(err).__name__})."
             ) from None
 
+        if response.status_code == 429:
+            with cls._cache_lock:
+                cls._rate_limit_until = time.monotonic() + cls.RATE_LIMIT_COOLDOWN_SECONDS
+            raise ValueError(f"Twelve Data {endpoint} rate limit exceeded (HTTP 429).")
         if response.is_error:
             raise ValueError(
                 f"Twelve Data {endpoint} returned HTTP {response.status_code}."

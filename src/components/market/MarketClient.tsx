@@ -13,6 +13,7 @@ interface MarketTrendItem {
   ticker: string;
   company_name: string;
   sector: string;
+  data_source?: "live" | "sample";
   currency: string;
   current_price: number;
   change: number;
@@ -29,6 +30,9 @@ interface MarketTrendsResponse {
   gainers: MarketTrendItem[];
   losers: MarketTrendItem[];
   volume_leaders: MarketTrendItem[];
+  data_status?: "live" | "partial" | "sample";
+  live_items_count?: number;
+  total_items_count?: number;
 }
 
 interface MarketClientProps {
@@ -133,7 +137,7 @@ export function MarketClient({
   const [marketFilter, setMarketFilter] = useState<"all" | "us" | "india">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [marketDataStatus, setMarketDataStatus] = useState<"live" | "sample">("sample");
+  const [marketDataStatus, setMarketDataStatus] = useState<"live" | "partial" | "sample">("sample");
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [watchlistLoaded, setWatchlistLoaded] = useState(false);
 
@@ -185,7 +189,11 @@ export function MarketClient({
           throw new Error("Market trends returned no instruments.");
         }
         setTrendsData(json);
-        setMarketDataStatus("live");
+        setMarketDataStatus(
+          json.data_status === "live" || json.data_status === "partial"
+            ? json.data_status
+            : "sample"
+        );
       } else {
         console.warn(`Market trends request failed (${res.status}); keeping the sample snapshot.`);
         setTrendsData(MOCK_FALLBACK_TRENDS);
@@ -265,9 +273,9 @@ export function MarketClient({
         </div>
 
         <div
-          role={marketDataStatus === "sample" ? "status" : undefined}
+          role={marketDataStatus !== "live" ? "status" : undefined}
           className={`flex flex-wrap items-center justify-between gap-2 rounded-md px-3.5 py-2.5 text-xs ${
-            marketDataStatus === "sample"
+            marketDataStatus !== "live"
               ? "border border-[#e8d9b9] bg-[#fbf6e9] text-[#796335]"
               : "border border-[#e2e5de] bg-white text-[#7c8981]"
           }`}
@@ -275,6 +283,8 @@ export function MarketClient({
           <span>
             {marketDataStatus === "live"
               ? "Market snapshot · Informational only"
+              : marketDataStatus === "partial"
+              ? `Limited live data · ${trendsData.live_items_count ?? 0} of ${trendsData.total_items_count ?? trendsData.all_items.length} stocks have live data; remaining values are sample only.`
               : "Sample market data · Live quotes are currently unavailable."}
           </span>
           <span className="text-[11px]">Prices may be delayed. Not investment advice.</span>
@@ -452,11 +462,11 @@ export function MarketClient({
                             </button>
                             <button
                               onClick={() => setTradeModalTarget({ ticker: item.ticker, price: item.current_price })}
-                              disabled={marketDataStatus !== "live"}
-                              title={marketDataStatus !== "live" ? "Live quote required to start a paper trade." : undefined}
+                              disabled={item.data_source !== "live"}
+                              title={item.data_source !== "live" ? "A live quote is required to start a paper trade." : undefined}
                               className="h-7 px-2.5 text-[11px] rounded-lg bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] transition-colors font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {marketDataStatus === "live" ? "Buy" : "Quote unavailable"}
+                              {item.data_source === "live" ? "Buy" : "Quote unavailable"}
                             </button>
                           </div>
                         </td>

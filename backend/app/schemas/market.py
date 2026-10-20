@@ -6,6 +6,7 @@ class MarketTrendItem(BaseModel):
     ticker: str
     company_name: str
     sector: str
+    data_source: Literal["live", "sample"] = "live"
     currency: str
     current_price: float
     change: float
@@ -22,6 +23,9 @@ class MarketTrendsResponse(BaseModel):
     gainers: List[MarketTrendItem]
     losers: List[MarketTrendItem]
     volume_leaders: List[MarketTrendItem]
+    data_status: Literal["live", "partial", "sample"] = "sample"
+    live_items_count: int = 0
+    total_items_count: int = 0
 
 
 class GrowthScoutRequest(BaseModel):

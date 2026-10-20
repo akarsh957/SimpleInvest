@@ -44,6 +44,8 @@ WATCHLIST_TICKERS = [
     'AXISBANK.NS', 'ASIANPAINT.NS', 'KOTAKBANK.NS', 'MARUTI.NS', 'SUNPHARMA.NS',
     'ULTRACEMCO.NS', 'TITAN.NS', 'WIPRO.NS', 'NESTLEIND.NS'
 ]
+LIVE_TREND_TICKERS = ("NVDA", "MSFT", "TCS.NS", "INFY.NS")
+MARKET_TREND_REQUEST_INTERVAL_SECONDS = 1.0
 
 COMPANIES_META = {
     'NVDA': {'name': 'NVIDIA Corporation', 'sector': 'Technology'},
@@ -287,37 +289,24 @@ class MarketDataService:
     @classmethod
     async def fetch_market_trends(cls) -> MarketTrendsResponse:
         """
-        Fetches market trends for the curated watchlist asynchronously with full concurrency & fallbacks.
+        Fetch a small live market sample and use clearly marked sample data for the rest.
         """
         global _TRENDS_CACHE, _TRENDS_CACHE_TIME
         if _TRENDS_CACHE and (time.time() - _TRENDS_CACHE_TIME < CACHE_TTL):
             return _TRENDS_CACHE
 
-        if not TwelveDataService.is_configured():
-            logger.warning("Twelve Data is not configured; returning market trend fallbacks.")
-            items = [cls._generate_fallback_trend_item(t) for t in WATCHLIST_TICKERS]
-            return cls._build_market_trends_response(items)
+        items_by_ticker = {
+            ticker: cls._generate_fallback_trend_item(ticker)
+            for ticker in WATCHLIST_TICKERS
+        }
+        if TwelveDataService.is_configured():
+            for index, ticker in enumerate(LIVE_TREND_TICKERS):
+                if index:
+                    await asyncio.sleep(MARKET_TREND_REQUEST_INTERVAL_SECONDS)
+                item = await cls._fetch_single_trend_item(ticker)
+                items_by_ticker[ticker] = item
 
-        semaphore = asyncio.Semaphore(4)
-
-        async def fetch_trend(ticker: str) -> MarketTrendItem:
-            async with semaphore:
-                return await cls._fetch_single_trend_item(ticker)
-
-        tasks = [fetch_trend(ticker) for ticker in WATCHLIST_TICKERS]
-        
-        try:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            items: List[MarketTrendItem] = []
-            for ticker, res in zip(WATCHLIST_TICKERS, results):
-                if isinstance(res, MarketTrendItem):
-                    items.append(res)
-                else:
-                    items.append(cls._generate_fallback_trend_item(ticker))
-        except Exception as e:
-            logger.error(f"Global market trends fetch failed: {e}. Returning complete fallback payload.")
-            items = [cls._generate_fallback_trend_item(t) for t in WATCHLIST_TICKERS]
-
+        items = [items_by_ticker[ticker] for ticker in WATCHLIST_TICKERS]
         return cls._build_market_trends_response(items)
 
     @classmethod
@@ -326,6 +315,14 @@ class MarketDataService:
         items: List[MarketTrendItem],
     ) -> MarketTrendsResponse:
         global _TRENDS_CACHE, _TRENDS_CACHE_TIME
+
+        live_items_count = sum(item.data_source == "live" for item in items)
+        if live_items_count == 0:
+            data_status = "sample"
+        elif live_items_count == len(items):
+            data_status = "live"
+        else:
+            data_status = "partial"
 
         gainers = sorted([i for i in items if i.change_percent >= 0], key=lambda x: x.change_percent, reverse=True)
         losers = sorted([i for i in items if i.change_percent < 0], key=lambda x: x.change_percent)
@@ -341,6 +338,9 @@ class MarketDataService:
             gainers=gainers,
             losers=losers,
             volume_leaders=volume_leaders,
+            data_status=data_status,
+            live_items_count=live_items_count,
+            total_items_count=len(items),
         )
         _TRENDS_CACHE = resp
         _TRENDS_CACHE_TIME = time.time()
@@ -379,6 +379,7 @@ class MarketDataService:
             ticker=ticker_symbol,
             company_name=meta['name'],
             sector=meta['sector'],
+            data_source="sample",
             currency=currency,
             current_price=price,
             change=change,
