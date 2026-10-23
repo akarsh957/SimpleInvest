@@ -182,7 +182,10 @@ export function MarketClient({
   const fetchTrends = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(getBackendUrl("/api/market/trends"));
+      let res = await fetch("/api/market/trends");
+      if (!res.ok) {
+        res = await fetch(getBackendUrl("/api/market/trends"));
+      }
       if (res.ok) {
         const json: MarketTrendsResponse = await res.json();
         if (!Array.isArray(json.all_items) || json.all_items.length === 0) {
@@ -462,11 +465,11 @@ export function MarketClient({
                             </button>
                             <button
                               onClick={() => setTradeModalTarget({ ticker: item.ticker, price: item.current_price })}
-                              disabled={item.data_source !== "live"}
-                              title={item.data_source !== "live" ? "A live quote is required to start a paper trade." : undefined}
+                              disabled={!item.current_price || item.current_price <= 0}
+                              title={!item.current_price ? "Price unavailable for trading" : `Paper trade ${item.ticker}`}
                               className="h-7 px-2.5 text-[11px] rounded-lg bg-[#00D09C] text-[#0B0E11] hover:bg-[#00B88A] transition-colors font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              {item.data_source === "live" ? "Buy" : "Quote unavailable"}
+                              Buy
                             </button>
                           </div>
                         </td>

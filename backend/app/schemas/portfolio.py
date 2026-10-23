@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -8,6 +8,7 @@ class HoldingInput(BaseModel):
     """
     ticker: str = Field(..., description="Ticker symbol (e.g., TCS.NS, INFY.NS, AAPL)")
     invested_amount: float = Field(..., gt=0, description="Amount invested in local currency")
+    shares: Optional[float] = Field(None, description="Number of shares held")
 
     @field_validator("ticker")
     @classmethod
@@ -16,6 +17,22 @@ class HoldingInput(BaseModel):
         if not v:
             raise ValueError("Ticker symbol cannot be empty")
         return v
+
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., description="'user' or 'assistant'")
+    content: str = Field(..., description="Message text")
+
+
+class PortfolioChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, description="User question or prompt for Copilot")
+    holdings: List[HoldingInput] = Field(default_factory=list, description="Current portfolio holdings")
+    history: List[ChatMessage] = Field(default_factory=list, description="Previous messages in this session")
+
+
+class PortfolioChatResponse(BaseModel):
+    reply: str = Field(..., description="Copilot's plain-English guidance and response")
+    suggested_followups: List[str] = Field(default_factory=list, description="Contextual quick prompts")
 
 
 class PortfolioAuditRequest(BaseModel):

@@ -171,6 +171,7 @@ CREATE TRIGGER prevent_executed_order_update
 CREATE OR REPLACE FUNCTION public.process_executed_order()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+
 SECURITY DEFINER
 SET search_path = public
 AS $$

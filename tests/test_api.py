@@ -115,3 +115,25 @@ def test_trade_rejects_nonpositive_shares():
         },
     )
     assert response.status_code == 422
+
+
+def test_portfolio_chat_returns_jargon_free_reply():
+    response = client.post(
+        "/api/portfolio/chat",
+        json={
+            "message": "Is my portfolio too concentrated in tech?",
+            "holdings": [
+                {"ticker": "MSFT", "invested_amount": 1000},
+                {"ticker": "NVDA", "invested_amount": 1000},
+            ],
+            "history": [],
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "reply" in data
+    assert isinstance(data["reply"], str)
+    assert len(data["reply"]) > 20
+    assert "suggested_followups" in data
+    assert len(data["suggested_followups"]) > 0
+

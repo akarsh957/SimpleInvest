@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/utils/supabase/server';
-import { Holding, Portfolio, PortfolioAuditResponse } from '@/src/types/portfolio';
+import { Holding, Portfolio, PortfolioAuditResponse, PortfolioChatRequest, PortfolioChatResponse } from '@/src/types/portfolio';
 import { getBackendBaseUrl } from '@/src/lib/backend';
 
 const API_BASE_URL = getBackendBaseUrl();
@@ -253,6 +253,7 @@ export async function auditPortfolioAction(
       holdings: holdings.map((h) => ({
         ticker: h.ticker,
         invested_amount: Math.round(h.shares * h.average_buy_price * 100) / 100,
+        shares: h.shares,
       })),
     };
 
@@ -280,3 +281,48 @@ export async function auditPortfolioAction(
     };
   }
 }
+
+/**
+ * Call FastAPI `/api/portfolio/chat` endpoint.
+ */
+export async function chatPortfolioAction(
+  message: string,
+  holdings: Array<{ ticker: string; shares: number; average_buy_price: number }>,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): Promise<{ success: boolean; data?: PortfolioChatResponse; error?: string }> {
+  try {
+    const payload: PortfolioChatRequest = {
+      message,
+      holdings: holdings.map((h) => ({
+        ticker: h.ticker,
+        invested_amount: Math.round(h.shares * h.average_buy_price * 100) / 100,
+        shares: h.shares,
+      })),
+      history,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/api/portfolio/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return { success: false, error: `Chat API Error (${response.status}): ${errText}` };
+    }
+
+    const data: PortfolioChatResponse = await response.json();
+    return { success: true, data };
+  } catch (err: any) {
+    console.error('Error in chatPortfolioAction:', err);
+    return {
+      success: false,
+      error: err?.message || 'Failed to communicate with AI chat copilot',
+    };
+  }
+}
+

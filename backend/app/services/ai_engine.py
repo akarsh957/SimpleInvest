@@ -9,6 +9,7 @@ try:
     from backend.app.schemas.portfolio import (
         HoldingAuditDetail,
         PortfolioAuditResponse,
+        PortfolioChatResponse,
     )
     from backend.app.schemas.market import GrowthOpportunity, GrowthScoutResponse, AIForecastInsights
 except ImportError:
@@ -17,6 +18,7 @@ except ImportError:
     from app.schemas.portfolio import (
         HoldingAuditDetail,
         PortfolioAuditResponse,
+        PortfolioChatResponse,
     )
     from app.schemas.market import GrowthOpportunity, GrowthScoutResponse, AIForecastInsights
 
@@ -230,6 +232,93 @@ Return a strict JSON object with these EXACT keys:
             logger.error(f"Groq API portfolio audit error: {e}. Falling back to local audit engine.")
             return self._mock_portfolio_audit(
                 total_invested, total_current, sector_breakdown, holdings_detail
+            )
+
+    async def chat_portfolio(
+        self,
+        message: str,
+        holdings_detail: List[HoldingAuditDetail],
+        total_invested: float,
+        total_current: float,
+        history: Optional[List[Any]] = None,
+    ) -> PortfolioChatResponse:
+        """
+        AI conversational portfolio assistant providing plain-English explanations,
+        personalized answers, risk guidance, and actionable rebalancing suggestions.
+        """
+        holdings_summary_str = "\n".join(
+            [
+                f"- {h.company_name} ({h.ticker}): {h.weight_percentage}% of portfolio, Sector: {h.sector}, Invested: {h.invested_amount}, Risk vibe: {h.risk_vibe}"
+                for h in holdings_detail
+            ]
+        ) if holdings_detail else "No active holdings yet."
+
+        client = self.async_client
+        if not client:
+            return self._mock_portfolio_chat(
+                message, holdings_detail, total_invested, total_current
+            )
+
+        system_prompt = (
+            "You are the AI Wealth Copilot in SimpleInvest, a friendly, encouraging, and deeply knowledgeable financial companion for everyday retail investors.\n"
+            "STRICT RULES:\n"
+            "1. NEVER use intimidating financial jargon like 'Beta', 'Sharpe Ratio', 'Capital Asset Pricing Model', 'arbitrage', or 'derivatives' without translating it into an intuitive everyday analogy (e.g. speed bumps, rollercoasters, shopping discounts, nutritional balance).\n"
+            "2. Answer the user's specific question directly, accurately, and empathetically using the user's actual holdings data provided.\n"
+            "3. Offer constructive suggestions for improving diversification or reducing concentration if relevant.\n"
+            "4. Respond in valid JSON with 'reply' (a markdown-formatted string with bullet points and friendly tone) and 'suggested_followups' (list of 3 short relevant follow-up questions)."
+        )
+
+        user_prompt = f"""
+Investor's Portfolio Context:
+- Total Invested: {total_invested}
+- Current Estimated Value: {total_current}
+- Number of Assets: {len(holdings_detail)}
+- Holdings Detail:
+{holdings_summary_str}
+
+User Question:
+"{message}"
+
+Return strict JSON matching this structure:
+{{
+  "reply": "Warm, jargon-free answer directly addressing the user question, using their portfolio facts and numbers when helpful.",
+  "suggested_followups": [
+    "Short relevant follow-up question 1",
+    "Short relevant follow-up question 2",
+    "Short relevant follow-up question 3"
+  ]
+}}
+"""
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            for msg in history[-4:]:
+                role = getattr(msg, "role", None) or (msg.get("role") if isinstance(msg, dict) else "user")
+                content = getattr(msg, "content", None) or (msg.get("content") if isinstance(msg, dict) else "")
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": user_prompt})
+
+        try:
+            response = await client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,
+                response_format={"type": "json_object"},
+            )
+            raw_content = response.choices[0].message.content.strip()
+            data = self._parse_json_response(raw_content)
+            return PortfolioChatResponse(
+                reply=str(data.get("reply", "Here is what I see in your portfolio.")),
+                suggested_followups=list(data.get("suggested_followups", [
+                    "How can I improve my diversification?",
+                    "Which stock has the highest risk?",
+                    "What sector should I consider adding next?",
+                ])),
+            )
+        except Exception as e:
+            logger.warning(f"Groq chat completion error: {e}. Falling back to rule-based engine.")
+            return self._mock_portfolio_chat(
+                message, holdings_detail, total_invested, total_current
             )
 
     async def scout_growth_opportunities(
@@ -772,15 +861,53 @@ Return strict JSON with these EXACT keys:
             "INFY.NS": {"drift": 0.05, "vol": 0.07, "signal": "BUY", "sentiment": 82, "conf": 85},
             "TATAMOTORS.NS": {"drift": 0.06, "vol": 0.09, "signal": "BUY", "sentiment": 79, "conf": 83},
             "ICICIBANK.NS": {"drift": 0.07, "vol": 0.06, "signal": "STRONG BUY", "sentiment": 87, "conf": 89},
+            "LLY": {"drift": 0.075, "vol": 0.08, "signal": "STRONG BUY", "sentiment": 89, "conf": 91},
+            "AVGO": {"drift": 0.07, "vol": 0.11, "signal": "STRONG BUY", "sentiment": 86, "conf": 88},
+            "V": {"drift": 0.045, "vol": 0.05, "signal": "BUY", "sentiment": 84, "conf": 90},
+            "JPM": {"drift": 0.048, "vol": 0.06, "signal": "BUY", "sentiment": 83, "conf": 88},
+            "UNH": {"drift": 0.042, "vol": 0.06, "signal": "BUY", "sentiment": 81, "conf": 87},
+            "WMT": {"drift": 0.038, "vol": 0.04, "signal": "BUY", "sentiment": 80, "conf": 89},
+            "MA": {"drift": 0.05, "vol": 0.06, "signal": "BUY", "sentiment": 85, "conf": 89},
+            "PG": {"drift": 0.035, "vol": 0.04, "signal": "BUY", "sentiment": 79, "conf": 91},
+            "JNJ": {"drift": 0.032, "vol": 0.04, "signal": "HOLD", "sentiment": 76, "conf": 88},
+            "XOM": {"drift": 0.044, "vol": 0.07, "signal": "BUY", "sentiment": 78, "conf": 84},
+            "BAC": {"drift": 0.046, "vol": 0.07, "signal": "BUY", "sentiment": 80, "conf": 86},
+            "KO": {"drift": 0.034, "vol": 0.04, "signal": "BUY", "sentiment": 79, "conf": 90},
+            "PEP": {"drift": 0.036, "vol": 0.04, "signal": "BUY", "sentiment": 80, "conf": 89},
+            "NFLX": {"drift": 0.068, "vol": 0.12, "signal": "BUY", "sentiment": 84, "conf": 85},
+            "AMD": {"drift": 0.072, "vol": 0.14, "signal": "BUY", "sentiment": 83, "conf": 84},
         }
 
-        profile = ticker_profiles.get(ticker, {
-            "drift": 0.04 + (0.02 if recent_momentum_pct > 0 else -0.01),
-            "vol": 0.08 * (beta if beta and beta > 0.5 else 1.0),
-            "signal": "BUY" if recent_momentum_pct >= -1.0 else "HOLD",
-            "sentiment": 76 if recent_momentum_pct >= 0 else 64,
-            "conf": 82
-        })
+        if ticker in ticker_profiles:
+            profile = ticker_profiles[ticker]
+        else:
+            seed = sum(ord(c) * (i + 1) for i, c in enumerate(ticker))
+            sector_map = {
+                "Technology": 0.062,
+                "Healthcare": 0.045,
+                "Financial Services": 0.048,
+                "Consumer Defensive": 0.036,
+                "Consumer Cyclical": 0.055,
+                "Energy": 0.044,
+                "Industrials": 0.042,
+                "Communication Services": 0.052,
+                "Materials": 0.040,
+            }
+            sec_base = sector_map.get(sector, 0.045)
+            hash_variance = ((seed % 31) - 15) / 1000.0
+            momentum_drift = 0.015 if recent_momentum_pct > 0 else -0.01
+            drift = round(sec_base + hash_variance + momentum_drift, 3)
+            vol = round(0.07 * (beta if beta and beta > 0.5 else 1.0), 3)
+            signal = "STRONG BUY" if drift >= 0.065 else ("BUY" if drift >= 0.035 else "HOLD")
+            sentiment = min(92, max(60, int(72 + (drift * 200))))
+            conf = min(92, max(75, int(80 + (seed % 10))))
+            profile = {
+                "drift": drift,
+                "vol": vol,
+                "signal": signal,
+                "sentiment": sentiment,
+                "conf": conf,
+            }
 
         expected_gain_pct = profile["drift"] * (horizon_ratio ** 0.7) * 100.0
         target_price = round(current_price * (1.0 + (expected_gain_pct / 100.0)), 2)
@@ -850,6 +977,114 @@ Return strict JSON with these EXACT keys:
             summary=f"Algorithmic synthesis projects {company_name} testing {currency} {target_price} over {horizon_str} (+{expected_gain_pct:.1f}% expected return) supported by strong fundamentals.",
             plain_english_translation=f"This stock has solid momentum right now and our AI expects it to trend upward toward {currency} {target_price} over the coming {forecast_days} days."
         )
+
+    def _mock_portfolio_chat(
+        self,
+        message: str,
+        holdings_detail: List[HoldingAuditDetail],
+        total_invested: float,
+        total_current: float,
+    ) -> PortfolioChatResponse:
+        """
+        Intelligent, rule-based plain-English portfolio conversation assistant.
+        Provides empathetic, contextual advice even when external LLMs are unavailable.
+        """
+        msg = message.lower().strip()
+        num_holdings = len(holdings_detail)
+        tech_holdings = [h for h in holdings_detail if "tech" in h.sector.lower()]
+        tech_pct = sum(h.weight_percentage for h in tech_holdings)
+        top_holding = max(holdings_detail, key=lambda x: x.weight_percentage) if holdings_detail else None
+
+        if not holdings_detail:
+            reply = (
+                "Welcome! You don't have any positions in your portfolio yet.\n\n"
+                "**Where to start:** A classic beginner-friendly approach is to pick 2–3 reliable companies "
+                "across different industries—such as a steady technology provider, an essential healthcare company, "
+                "and an everyday consumer brand. This spreads out your risk like putting your eggs in different baskets!"
+            )
+            followups = [
+                "What stocks are great for beginners?",
+                "How do I choose my first investment?",
+                "What is a good diversification score?",
+            ]
+        elif any(k in msg for k in ["tech", "concentrat", "heavy", "one sector", "too much", "basket"]):
+            if tech_pct > 40:
+                reply = (
+                    f"Great question! Right now, about **{tech_pct:.1f}%** of your portfolio is in **Technology**"
+                    + (f" across holdings like {', '.join([h.ticker for h in tech_holdings[:3]])}." if tech_holdings else ".")
+                    + "\n\n"
+                    "Think of technology stocks like a high-speed sports car—fast and exciting, but sensitive to bumps in the road. "
+                    "When tech takes a breather, a tech-heavy portfolio feels the swings more sharply.\n\n"
+                    "**Actionable tip:** You don't necessarily have to sell your current shares, but consider putting future savings into "
+                    "shock-absorbing sectors like **Consumer Staples** (e.g. Procter & Gamble, ITC) or **Healthcare** (e.g. Johnson & Johnson)."
+                )
+            else:
+                reply = (
+                    f"Your technology allocation is in a healthy zone at **{tech_pct:.1f}%** of your total investments. "
+                    "You aren't overly exposed to a single tech dip, which gives your portfolio a smoother ride."
+                )
+            followups = [
+                "What defensive stocks should I look into?",
+                "How can I increase my diversification score?",
+                "Should I rebalance by selling or buying more?",
+            ]
+        elif any(k in msg for k in ["risk", "safe", "danger", "crash", "loss", "bumpy"]):
+            reply = (
+                f"Looking across your {num_holdings} active position{'s' if num_holdings != 1 else ''}, "
+                + (f"your largest single holding is **{top_holding.company_name}** ({top_holding.weight_percentage}% of your portfolio). " if top_holding else "")
+                + "\n\n"
+                "**3 Ways to Keep Your Portfolio Resilient:**\n"
+                "1. **Cap single stocks:** Aim to keep individual positions under 15–20% of your total pool.\n"
+                "2. **Mix smooth with fast:** Pair high-growth leaders with everyday defensive companies.\n"
+                "3. **Keep cash handy:** Holding a small cash reserve lets you buy dips comfortably without panic."
+            )
+            followups = [
+                "Which of my holdings has the highest volatility?",
+                "What would happen to my portfolio in a market downturn?",
+                "How do I lower my portfolio risk score?",
+            ]
+        elif any(k in msg for k in ["score", "health", "rating", "diversif"]):
+            reply = (
+                "Your diversification health score looks at how evenly your investments are spread across companies and sectors:\n\n"
+                f"- **Active Holdings:** {num_holdings} (A well-rounded portfolio typically has 6–12 positions)\n"
+                + (f"- **Largest Holding:** {top_holding.company_name} ({top_holding.weight_percentage}%)\n" if top_holding else "")
+                + f"- **Primary Sector:** {'Technology' if tech_pct > 30 else 'Balanced'} (~{tech_pct:.0f}%)\n\n"
+                "To push your score into the 80+ green zone, try bringing in 1–2 assets from non-correlated industries such as Healthcare, Banking, or Consumer Staples."
+            )
+            followups = [
+                "Which sectors am I completely missing?",
+                "Should I add an ETF or individual stocks?",
+                "How often should I review my portfolio?",
+            ]
+        elif any(k in msg for k in ["buy", "next", "add", "invest", "recommend", "suggestion"]):
+            reply = (
+                "When deciding what to buy next, look at what you *don't* have yet! "
+                + (f"Since you already have strong tech exposure ({tech_pct:.0f}%), " if tech_pct > 30 else "")
+                + "adding an industry that behaves differently gives you natural shock absorption.\n\n"
+                "**Sectors that balance a tech portfolio:**\n"
+                "- **Consumer Essentials (PG, KO, ITC):** Steady everyday demand regardless of market cycles.\n"
+                "- **Healthcare (JNJ, ABT, Sun Pharma):** Essential medical demand with steady cash flows.\n"
+                "- **Financial Networks (Visa, HDFC Bank):** Core infrastructure benefiting from economic commerce."
+            )
+            followups = [
+                "How do I balance US and Indian stocks?",
+                "What is paper trading and how do I practice?",
+                "How much should I invest in each position?",
+            ]
+        else:
+            reply = (
+                f"You currently hold **{num_holdings} asset{'s' if num_holdings != 1 else ''}** with an invested amount of "
+                f"**₹{total_invested:,.0f} / ${total_invested:,.0f}**.\n\n"
+                + (f"Your largest position is **{top_holding.company_name}** ({top_holding.weight_percentage}%). " if top_holding else "")
+                + "I can help you understand your diversification health score, explore sector concentration, analyze individual holdings, or suggest rebalancing ideas. What would you like to explore?"
+            )
+            followups = [
+                "Is my portfolio diversified enough?",
+                "What is my highest risk holding?",
+                "How can I improve my health score?",
+            ]
+
+        return PortfolioChatResponse(reply=reply, suggested_followups=followups)
 
 
 ai_engine = AIEngineService()

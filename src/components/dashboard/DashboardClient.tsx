@@ -469,6 +469,7 @@ export function DashboardClient({
               isLoading={isAuditLoading}
               error={auditError}
               onRefreshAudit={() => runAudit(holdings)}
+              holdings={holdings}
             />
           </div>
         </div>

@@ -1,7 +1,10 @@
 import httpx
+import logging
 import threading
 import time
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.app.config import settings
@@ -99,20 +102,49 @@ class TwelveDataService:
         with cls._cache_lock:
             cls._response_cache[cache_key] = (time.monotonic(), data)
         return data
+    @classmethod
+    async def get_realtime_quote(cls, ticker: str) -> Optional[Dict[str, Any]]:
+        try:
+            data = await cls._get_cached("quote", ticker, 60)
+            if data and (data.get("price") or data.get("close")):
+                return data
+        except Exception as e:
+            logger.info("Twelve Data quote unavailable for %s (%s). Falling back to secondary market provider.", ticker, e)
 
-    @staticmethod
-    async def get_realtime_quote(ticker: str) -> Optional[Dict[str, Any]]:
-        return await TwelveDataService._get_cached("quote", ticker, 60)
+        try:
+            try:
+                from backend.app.services.yahoo_finance import YahooFinanceService
+            except ImportError:
+                from app.services.yahoo_finance import YahooFinanceService
+            return await YahooFinanceService.get_realtime_quote(ticker)
+        except Exception as fallback_err:
+            logger.warning("Fallback market provider failed for %s: %s", ticker, fallback_err)
+            return None
 
-    @staticmethod
-    async def get_historical_charts(ticker: str, interval: str = "1day", outputsize: int = 30) -> Optional[Dict[str, Any]]:
-        return await TwelveDataService._get_cached(
-            "time_series",
-            ticker,
-            600,
-            interval=interval,
-            outputsize=outputsize,
-        )
+    @classmethod
+    async def get_historical_charts(cls, ticker: str, interval: str = "1day", outputsize: int = 30) -> Optional[Dict[str, Any]]:
+        try:
+            data = await cls._get_cached(
+                "time_series",
+                ticker,
+                600,
+                interval=interval,
+                outputsize=outputsize,
+            )
+            if data and data.get("values"):
+                return data
+        except Exception as e:
+            logger.info("Twelve Data history unavailable for %s (%s). Falling back to secondary market provider.", ticker, e)
+
+        try:
+            try:
+                from backend.app.services.yahoo_finance import YahooFinanceService
+            except ImportError:
+                from app.services.yahoo_finance import YahooFinanceService
+            return await YahooFinanceService.get_historical_charts(ticker, interval=interval, outputsize=outputsize)
+        except Exception as fallback_err:
+            logger.warning("Fallback chart provider failed for %s: %s", ticker, fallback_err)
+            return None
 
     @staticmethod
     async def get_statistics(ticker: str) -> Optional[Dict[str, Any]]:

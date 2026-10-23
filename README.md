@@ -7,7 +7,7 @@
 
 ## Overview
 
-**SimpleInvest** bridges institutional wealth intelligence with retail accessibility. Powered by **Next.js 15 (App Router)**, **FastAPI (Python 3.11)**, **Groq SDK (Llama 3.3 70B Versatile)**, and **Supabase (PostgreSQL with RLS & Stored Procedures)**, SimpleInvest provides an authentic, high-density editorial financial terminal aesthetic (Linear / Fey / Robinhood Legend) with strict 1px hairline grids and monochromatic zinc styling.
+**SimpleInvest** bridges institutional wealth intelligence with retail accessibility. Powered by **Next.js 15 (App Router)**, **FastAPI (Python 3.11)**, **Groq SDK (GPT-OSS 120B)**, and **Supabase (PostgreSQL with RLS & Stored Procedures)**, SimpleInvest uses a calm editorial finance UI with warm ivory surfaces, deep-teal navigation, forest-green actions, and compact, readable market data.
 
 ---
 
@@ -33,8 +33,8 @@ Frontend (Next.js 15, React 19, TypeScript, Tailwind CSS, Recharts)
   │
   └─► FastAPI Microservice (Python 3.11, Uvicorn)
         │
-        ├─► Groq Cloud LLM (Llama 3.3 70B Versatile via AsyncGroq)
-        ├─► yfinance (Live NYSE & NSE Market Feeds & Sparklines)
+        ├─► Groq Cloud LLM (GPT-OSS 120B via AsyncGroq)
+        ├─► Twelve Data (Quotes, historical prices & fundamentals where available)
         └─► Twelve Data (Technicals & Momentum)
 ```
 
@@ -63,14 +63,35 @@ pytest tests/ -v
 npx tsc --noEmit
 ```
 
-## Render Deployment
+## Production Deployment
 
-The root `render.yaml` Blueprint provisions both the FastAPI backend and the Next.js frontend. In the Render Dashboard, create a Blueprint from this repository's `main` branch and provide these values when prompted:
+The recommended production setup is the FastAPI backend on Render and the Next.js frontend on Vercel.
 
-- Backend: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `GROQ_API_KEY`, and `TWELVE_DATA_API_KEY`.
-- Frontend: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+### Backend on Render
 
-Enter credentials directly in Render; do not commit them to the repository. The Blueprint wires the frontend API URL and backend CORS origin to the corresponding Render services.
+The `simpleinvest-api` service in `render.yaml` requires these environment variables in Render:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `GROQ_API_KEY`
+- `GROQ_MODEL` (the Blueprint sets the supported default `openai/gpt-oss-120b`)
+- `TWELVE_DATA_API_KEY`
+- `ALLOWED_ORIGINS`: include the exact production Vercel origin, such as `https://your-app.vercel.app`, alongside any origins still needed during migration.
+
+Keep credentials in the Render Dashboard; do not commit them to the repository. The API health check is available at `/health`.
+
+### Frontend on Vercel
+
+1. Import this GitHub repository into Vercel and use the repository root as the project root. Vercel should detect Next.js automatically; use `npm run build` as the build command.
+2. Add these environment variables to the Vercel project for Production (and Preview too, if previews should use the API):
+   - `NEXT_PUBLIC_API_URL`: the Render API base URL, for example `https://your-api.onrender.com` (do not append `/health`).
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Deploy and copy the production domain Vercel assigns to the project.
+4. Add that exact origin (scheme and hostname, with no path or trailing slash) to the Render API's `ALLOWED_ORIGINS`, then redeploy the API. If using a custom Vercel domain, allow that domain as well.
+5. Verify `https://your-api.onrender.com/health` returns HTTP 200 and open the Vercel production URL to test sign-in, market data, and trading flows.
+
+Do not remove the existing Render frontend until the Vercel deployment and API integration have been verified. The current `render.yaml` still defines that frontend for migration/rollback; update the Blueprint only when ready to retire the Render-hosted copy.
 
 ---
 

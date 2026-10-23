@@ -24,10 +24,27 @@ export interface Holding {
 export interface HoldingInput {
   ticker: string;
   invested_amount: number;
+  shares?: number;
 }
 
 export interface PortfolioAuditRequest {
   holdings: HoldingInput[];
+}
+
+export interface PortfolioChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface PortfolioChatRequest {
+  message: string;
+  holdings: HoldingInput[];
+  history?: PortfolioChatMessage[];
+}
+
+export interface PortfolioChatResponse {
+  reply: string;
+  suggested_followups: string[];
 }
 
 export interface HoldingAuditDetail {

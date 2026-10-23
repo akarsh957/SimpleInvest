@@ -55,7 +55,7 @@ The React/Next.js app calls backend APIs to fetch:
 
 ### Step 3: Backend processes the request
 The FastAPI service acts as the analytics and business logic layer. It may:
-- call Yahoo Finance or Twelve Data for market data,
+- call Twelve Data for market data,
 - call Groq LLM for plain-English investment summaries,
 - validate trade requests,
 - and update portfolio states.
@@ -161,7 +161,7 @@ This is a strong interview topic because it shows:
 - structured prompt/data flow,
 - and practical use of large language models in a business app.
 
-### Data sources: yfinance + Twelve Data
+### Data source: Twelve Data
 These libraries/providers give market-related data such as:
 - real-time quote information,
 - historical OHLCV data,
@@ -247,7 +247,7 @@ If asked: "What technologies did you use and why?"
 
 You can say:
 
-> I used Next.js and TypeScript for the frontend because it gives a modern, scalable UI experience. FastAPI was used for the backend because it is lightweight and ideal for API-driven financial services. Supabase with PostgreSQL was used for persistence and trade logic, especially for RLS and database triggers. Groq and market-data providers such as yfinance and Twelve Data were used to enrich the app with AI insight and live financial information.
+> I used Next.js and TypeScript for the frontend because it gives a modern, scalable UI experience. FastAPI was used for the backend because it is lightweight and ideal for API-driven financial services. Supabase with PostgreSQL was used for persistence and trade logic, especially for RLS and database triggers. Groq and Twelve Data enrich the app with AI insight and live financial information.
 
 If asked: "What was the hardest problem in the project?"
 
