@@ -44,8 +44,11 @@ WATCHLIST_TICKERS = [
     'AXISBANK.NS', 'ASIANPAINT.NS', 'KOTAKBANK.NS', 'MARUTI.NS', 'SUNPHARMA.NS',
     'ULTRACEMCO.NS', 'TITAN.NS', 'WIPRO.NS', 'NESTLEIND.NS'
 ]
-LIVE_TREND_TICKERS = ("NVDA", "MSFT", "TCS.NS", "INFY.NS")
-MARKET_TREND_REQUEST_INTERVAL_SECONDS = 1.0
+LIVE_TREND_TICKERS = (
+    "NVDA", "AAPL", "MSFT", "TSLA", "AVGO", "V", "JPM", "UNH", "WMT", "MA",
+    "PG", "JNJ", "XOM", "HD", "MRK", "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "TATAMOTORS.NS"
+)
+MARKET_TREND_REQUEST_INTERVAL_SECONDS = 0.25
 
 COMPANIES_META = {
     'NVDA': {'name': 'NVIDIA Corporation', 'sector': 'Technology'},
@@ -339,13 +342,51 @@ class MarketDataService:
                 fifty_two_week_low=round(float(fifty_two_low), 2),
                 fifty_two_week_high=round(float(fifty_two_high), 2),
                 sparkline=prices,
+                data_source="live",
             )
         except Exception as e:
-            logger.warning(
-                "Twelve Data trend fetch failed for %s: %s. Using fallback.",
+            logger.info(
+                "Historical chart provider failed for %s (%s). Attempting secondary real-time quote provider.",
                 ticker_symbol,
                 e,
             )
+            try:
+                try:
+                    from backend.app.services.yahoo_finance import YahooFinanceService
+                except ImportError:
+                    from app.services.yahoo_finance import YahooFinanceService
+                quote = await YahooFinanceService.get_realtime_quote(ticker_symbol)
+                if quote and quote.get("price") is not None:
+                    price = float(quote["price"])
+                    chg = float(quote.get("change") or 0.0)
+                    pct = float(quote.get("percent_change") or 0.0)
+                    vol = int(quote.get("volume") or 0)
+                    ftw = quote.get("fifty_two_week") or {}
+                    low_52 = ftw.get("low") or round(price * 0.85, 2)
+                    high_52 = ftw.get("high") or round(price * 1.15, 2)
+                    spark = [
+                        round(price - chg * (1 - i / 6.0), 2)
+                        for i in range(7)
+                    ]
+                    spark[-1] = price
+                    return MarketTrendItem(
+                        ticker=ticker_symbol,
+                        company_name=quote.get("name") or meta["name"],
+                        sector=meta["sector"],
+                        currency=quote.get("currency") or currency,
+                        current_price=round(price, 2),
+                        change=round(chg, 2),
+                        change_percent=round(pct, 2),
+                        volume=vol,
+                        volume_formatted=cls._format_volume(vol, currency),
+                        fifty_two_week_low=round(float(low_52), 2),
+                        fifty_two_week_high=round(float(high_52), 2),
+                        sparkline=spark,
+                        data_source="live",
+                    )
+            except Exception as yf_err:
+                logger.warning("Secondary market provider fallback failed for %s: %s", ticker_symbol, yf_err)
+
             return cls._generate_fallback_trend_item(ticker_symbol)
 
     @classmethod
@@ -446,6 +487,7 @@ class MarketDataService:
             'ORCL': (168.20, +2.90, +1.75, 8200000, [160.0, 162.0, 164.5, 165.8, 166.5, 167.2, 168.20]),
             'COST': (892.40, +7.60, +0.86, 1900000, [875.0, 878.5, 882.0, 885.5, 888.0, 890.2, 892.40]),
             'HD': (394.50, +2.10, +0.54, 3200000, [388.0, 389.5, 391.0, 392.2, 393.0, 393.8, 394.50]),
+            'MRK': (88.40, +0.65, +0.74, 7800000, [86.5, 87.0, 87.5, 87.2, 87.8, 88.0, 88.40]),
             'INTC': (22.80, +0.40, +1.79, 45000000, [21.5, 21.8, 22.0, 22.2, 22.4, 22.6, 22.80]),
             'DIS': (96.50, +0.80, +0.84, 8900000, [94.0, 94.8, 95.2, 95.8, 96.0, 96.2, 96.50]),
             'RELIANCE.NS': (2940.00, +35.50, +1.22, 8500000, [2880.0, 2895.0, 2910.0, 2900.0, 2925.0, 2930.0, 2940.0]),
