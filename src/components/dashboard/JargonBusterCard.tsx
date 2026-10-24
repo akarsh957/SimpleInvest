@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Holding, PortfolioAuditResponse, PortfolioChatMessage } from "@/src/types/portfolio";
 import { Skeleton } from "@/src/components/ui/skeleton";
 import { Brain, MessageSquare, Send, Sparkles, User, RefreshCw } from "lucide-react";
+import { FormattedChatMessage } from "./FormattedChatMessage";
 
 interface JargonBusterCardProps {
   auditData?: PortfolioAuditResponse | null;
@@ -289,11 +290,15 @@ export function JargonBusterCard({
                 <div
                   className={`p-3 rounded-xl max-w-[85%] leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-[#5367FF] text-white rounded-tr-none"
-                      : "bg-[#14171D] text-[#E8ECF4] border border-[#262A34] rounded-tl-none whitespace-pre-wrap"
+                      ? "bg-[#5367FF] text-white rounded-tr-none whitespace-pre-wrap"
+                      : "bg-[#14171D] text-[#E8ECF4] border border-[#262A34] rounded-tl-none"
                   }`}
                 >
-                  {msg.content}
+                  {msg.role === "user" ? (
+                    msg.content
+                  ) : (
+                    <FormattedChatMessage content={msg.content} />
+                  )}
                 </div>
               </div>
             ))}

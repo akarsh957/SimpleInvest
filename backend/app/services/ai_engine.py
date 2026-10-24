@@ -265,7 +265,7 @@ Return a strict JSON object with these EXACT keys:
             "1. NEVER use intimidating financial jargon like 'Beta', 'Sharpe Ratio', 'Capital Asset Pricing Model', 'arbitrage', or 'derivatives' without translating it into an intuitive everyday analogy (e.g. speed bumps, rollercoasters, shopping discounts, nutritional balance).\n"
             "2. Answer the user's specific question directly, accurately, and empathetically using the user's actual holdings data provided.\n"
             "3. Offer constructive suggestions for improving diversification or reducing concentration if relevant.\n"
-            "4. Respond in valid JSON with 'reply' (a markdown-formatted string with bullet points and friendly tone) and 'suggested_followups' (list of 3 short relevant follow-up questions)."
+            "4. Respond in valid JSON with 'reply' (a clean, friendly conversational response with natural paragraphs and bullet points, without raw markdown hashes like '###' or symbols) and 'suggested_followups' (list of 3 short relevant follow-up questions)."
         )
 
         user_prompt = f"""
