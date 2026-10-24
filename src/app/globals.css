@@ -340,7 +340,9 @@
   color: var(--text-primary) !important;
 }
 
-[class*="text-[#E8ECF4]"] {
+[class*="text-[#E8ECF4]"],
+[class*="text-[#C4CBD8]"],
+[class*="text-[#E2E8F0]"] {
   color: var(--text-primary) !important;
 }
 

@@ -10,7 +10,7 @@ interface FormattedChatMessageProps {
  * - *italic* or _italic_
  * - `code`
  * - [label](url)
- * Also strips stray/unmatched markdown tokens so no raw special characters remain.
+ * Renders high-contrast, crisp typography for both light and dark themes.
  */
 function renderInline(text: string): React.ReactNode[] {
   if (!text) return [];
@@ -29,7 +29,7 @@ function renderInline(text: string): React.ReactNode[] {
     ) {
       const inner = part.slice(2, -2);
       return (
-        <strong key={index} className="font-semibold text-white">
+        <strong key={index} className="font-bold text-[#173b3b]">
           {inner}
         </strong>
       );
@@ -41,7 +41,7 @@ function renderInline(text: string): React.ReactNode[] {
       return (
         <code
           key={index}
-          className="px-1.5 py-0.5 rounded bg-[#20242D] text-[#00D09C] font-mono text-[11px]"
+          className="px-1.5 py-0.5 rounded bg-[#e4e9e3] text-[#1d5b48] font-mono text-[11px] border border-[#d2dace]"
         >
           {inner}
         </code>
@@ -57,7 +57,7 @@ function renderInline(text: string): React.ReactNode[] {
           href={linkMatch[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#5367FF] hover:underline"
+          className="text-[#246b55] font-medium underline hover:text-[#173b3b]"
         >
           {linkMatch[1]}
         </a>
@@ -71,7 +71,7 @@ function renderInline(text: string): React.ReactNode[] {
     ) {
       const inner = part.slice(1, -1);
       return (
-        <em key={index} className="italic text-[#E2E8F0]">
+        <em key={index} className="italic text-[#374c44]">
           {inner}
         </em>
       );
@@ -82,13 +82,17 @@ function renderInline(text: string): React.ReactNode[] {
       .replace(/\*\*/g, "")
       .replace(/^#{1,6}\s*/g, "");
 
-    return <span key={index}>{cleaned}</span>;
+    return (
+      <span key={index} className="text-[#20312d]">
+        {cleaned}
+      </span>
+    );
   });
 }
 
 /**
  * Rich chat response formatter for AI Copilot.
- * Replaces raw markdown symbols (###, **, -, 1.) with clean, modern UI components.
+ * Replaces raw markdown symbols (###, **, -, 1.) with clean, modern, highly visible UI components.
  */
 export function FormattedChatMessage({ content }: FormattedChatMessageProps) {
   if (!content) return null;
@@ -108,17 +112,17 @@ export function FormattedChatMessage({ content }: FormattedChatMessageProps) {
     const listKey = `list-${elements.length}`;
 
     elements.push(
-      <div key={listKey} className="my-1.5 space-y-1.5">
+      <div key={listKey} className="my-2 space-y-1.5">
         {currentList.items.map((item, idx) => (
-          <div key={idx} className="flex items-start gap-2 text-[#C4CBD8] leading-relaxed">
+          <div key={idx} className="flex items-start gap-2 text-[#20312d] leading-relaxed">
             {isUl ? (
-              <span className="text-[#00D09C] shrink-0 text-sm leading-none mt-1">•</span>
+              <span className="text-[#246b55] font-bold shrink-0 text-sm leading-none mt-1">•</span>
             ) : (
-              <span className="text-[#5367FF] font-semibold text-[11px] shrink-0 mt-0.5">
+              <span className="text-[#246b55] font-bold text-xs shrink-0 mt-0.5">
                 {(currentList?.startNum || 1) + idx}.
               </span>
             )}
-            <div className="flex-1">{renderInline(item)}</div>
+            <div className="flex-1 text-[#20312d] leading-relaxed">{renderInline(item)}</div>
           </div>
         ))}
       </div>
@@ -139,7 +143,7 @@ export function FormattedChatMessage({ content }: FormattedChatMessageProps) {
     // Horizontal rule: --- or *** or ___
     if (/^(?:---|---|\*\*\*|___)$/.test(trimmed)) {
       flushList();
-      elements.push(<hr key={`hr-${i}`} className="border-[#262A34] my-2" />);
+      elements.push(<hr key={`hr-${i}`} className="border-[#cbd3ca] my-2" />);
       continue;
     }
 
@@ -153,11 +157,11 @@ export function FormattedChatMessage({ content }: FormattedChatMessageProps) {
       elements.push(
         <div
           key={`h-${i}`}
-          className={`font-semibold text-white flex items-center gap-1.5 ${
+          className={`font-bold text-[#173b3b] flex items-center gap-1.5 ${
             level <= 2 ? "text-sm mt-3 mb-1" : "text-xs mt-2.5 mb-1"
           }`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00D09C] shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#246b55] shrink-0" />
           <span>{renderInline(headingText)}</span>
         </div>
       );
@@ -190,7 +194,7 @@ export function FormattedChatMessage({ content }: FormattedChatMessageProps) {
     // Regular text paragraph
     flushList();
     elements.push(
-      <p key={`p-${i}`} className="text-[#C4CBD8] my-1 leading-relaxed">
+      <p key={`p-${i}`} className="text-[#20312d] my-1 leading-relaxed">
         {renderInline(trimmed)}
       </p>
     );
@@ -198,5 +202,5 @@ export function FormattedChatMessage({ content }: FormattedChatMessageProps) {
 
   flushList();
 
-  return <div className="space-y-1 text-xs">{elements}</div>;
+  return <div className="space-y-1.5 text-xs text-[#20312d]">{elements}</div>;
 }
